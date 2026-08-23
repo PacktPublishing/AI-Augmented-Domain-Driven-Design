@@ -18,8 +18,4 @@
       <ProjectReference Include="..\BrewUp.Warehouse.SharedKernel\BrewUp.Warehouse.SharedKernel.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <InternalsVisibleTo Include="BrewUp.Warehouse.Tests" />
-    </ItemGroup>
-
 </Project>

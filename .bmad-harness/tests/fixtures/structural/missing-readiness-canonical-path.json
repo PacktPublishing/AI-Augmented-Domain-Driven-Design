@@ -1,0 +1,7 @@
+{
+  "name": "readiness guard canonical path drift",
+  "target": ".github/agents/bmad-brewup-implementation-readiness.agent.md",
+  "search": "_bmad-output/planning-artifacts/architecture/index.md",
+  "replace": "_bmad-output/planning-artifacts/wrong-architecture/index.md",
+  "expectedCheckId": "agent-artifact-path"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "description trailing unquoted colon",
+  "target": ".github/agents/bmad-brewup-prd-guard.agent.md",
+  "search": "description: Review a BrewUp BMAD PRD for governed requirements and traceability without changing it.",
+  "replace": "description: value:",
+  "expectedCheckId": "agent-frontmatter"
+}
