@@ -50,6 +50,6 @@ conformance result.
 
 - [x] Corrected ES-24 accepted.
 - [x] Corrected ES-29 accepted.
-- Reviewer: domain authority participating in the Chapter 9 review
+- Reviewer: human evaluator acting as the authority over the synthetic fixture and its evaluation baseline
 - Date: 2026-08-19
 - Notes: Both guided corrections were accepted without further referral.

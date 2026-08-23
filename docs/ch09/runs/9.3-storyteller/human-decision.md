@@ -21,7 +21,7 @@
 
 ## Domain-authority notes
 
-- Reviewer: domain authority participating in the Chapter 9 review
+- Reviewer: human evaluator acting as the authority over the synthetic fixture and its evaluation baseline
 - Date: 2026-08-19
 - General constraints: accept concrete, evidence-backed scenarios that preserve
   uncertainty; do not permit a name to assert an arrival, end state, or

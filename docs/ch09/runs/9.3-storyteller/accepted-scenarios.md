@@ -11,9 +11,7 @@ Open questions remain open. Inclusion in this handoff does not change an
 ## Provenance
 
 - Primary output SHA-256: `51ad6561fb24af5e0319ffcdef8db3ad9090a95a24c46de77af1f94891fc01c5`
-- Primary decision SHA-256: recorded in `human-decision.md`
 - Correction output SHA-256: `289e4772dca5c8de07a169fc90e4ecc0e6cae1072bb80e5ce0e0b12a92fe5a62`
-- Correction decision SHA-256: recorded in `correction-01/human-decision.md`
 
 ## Candidates
 

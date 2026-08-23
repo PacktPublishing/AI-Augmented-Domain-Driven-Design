@@ -55,7 +55,7 @@ undecided.
 
 ## Domain-authority notes
 
-- Reviewer: domain authority participating in the Chapter 9 review
+- Reviewer: human evaluator acting as the authority over the synthetic fixture and its evaluation baseline
 - Date: 2026-08-19
 - General reason or constraints: Accepted candidates preserve observed facts and explicit uncertainty. ES-24 and ES-29 were referred back for evidence-aligned naming; no candidate was rejected.
 

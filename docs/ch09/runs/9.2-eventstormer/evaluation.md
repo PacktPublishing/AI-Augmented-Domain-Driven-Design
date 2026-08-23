@@ -142,6 +142,6 @@ from one specialist.
 - [x] Confirmed Status and restraint as `met`.
 - [x] Confirmed Provenance as `partially met`.
 - [x] Confirmed the recorded failure-hypothesis outcomes.
-- Evaluator: domain authority participating in the Chapter 9 review
+- Evaluator: human evaluator acting as the authority over the synthetic fixture and its evaluation baseline
 - Date: 2026-08-19
 - Notes: Confirmed as proposed. Candidate review completed with 39 accepted, 2 referred back, and 0 rejected.
