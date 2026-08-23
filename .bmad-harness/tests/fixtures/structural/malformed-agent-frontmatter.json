@@ -1,0 +1,7 @@
+{
+  "name": "unknown malformed frontmatter field",
+  "target": ".github/agents/bmad-brewup-prd-guard.agent.md",
+  "search": "tools: [\"read\", \"search\"]",
+  "replace": "tools: [\"read\", \"search\"]\nbroken: [unterminated",
+  "expectedCheckId": "agent-frontmatter"
+}

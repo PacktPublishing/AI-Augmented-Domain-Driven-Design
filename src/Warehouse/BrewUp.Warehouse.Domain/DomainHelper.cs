@@ -13,6 +13,7 @@ public static class DomainHelper
         services.AddCommandHandler<PrepareShipmentCommandHandler>();
         services.AddCommandHandler<AddItemStockCommandHandlerAsync>();
         services.AddCommandHandler<CreateAvailabilityCommandHandler>();
+        services.AddCommandHandler<ReserveStockCommandHandler>();
 
         return services;
     }

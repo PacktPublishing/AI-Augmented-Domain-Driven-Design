@@ -1,0 +1,8 @@
+{
+  "name": "BC rule content drift",
+  "target": ".bmad-harness/governance/brewup-sales-order-confirmation.md",
+  "search": "Sales must not authorize payment.",
+  "replace": "Sales may authorize payment.",
+  "expectedCheckId": "governance-sync",
+  "expectedText": "BC-003"
+}

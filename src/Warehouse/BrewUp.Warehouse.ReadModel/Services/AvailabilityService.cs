@@ -12,6 +12,7 @@ namespace BrewUp.Warehouse.ReadModel.Services
 {
     internal class AvailabilityService([FromKeyedServices("warehouse")] IPersister persister,
     IQueries<Availability> queries,
+    IStockReservationService stockReservationService,
     ILoggerFactory loggerFactory)
     : ServiceBase(persister, loggerFactory), IAvailabilityService
     {
@@ -19,7 +20,9 @@ namespace BrewUp.Warehouse.ReadModel.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var queryResult = await queries.GetByIdAsync(id, cancellationToken);
+            var queryResult = await queries
+                .GetByIdAsync(id, cancellationToken)
+                .ConfigureAwait(false);
 
             if (!queryResult.IsSuccess) 
                 return Result<AvailabilityJson>.Error("Availability not found");
@@ -36,7 +39,9 @@ namespace BrewUp.Warehouse.ReadModel.Services
         {
             var dto = Availability.Create(availabilityId, warehouseId, beerId, quantity);
 
-            return await Persister.InsertAsync(dto, cancellationToken);
+            return await Persister
+                .InsertAsync(dto, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<Result<string>> AddItemStockAsync(AvailabilityId availabilityId,
@@ -45,14 +50,18 @@ namespace BrewUp.Warehouse.ReadModel.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var persisterResult = await Persister.GetByIdAsync<Availability>(availabilityId.Value, cancellationToken);
+            var persisterResult = await Persister
+                .GetByIdAsync<Availability>(availabilityId.Value, cancellationToken)
+                .ConfigureAwait(false);
             if (!persisterResult.IsSuccess)
                 return Result<string>.Error("Error retrieving warehouse availability");
 
             persisterResult.TryGetValue(out Availability availabilityDto);
             availabilityDto.UpdateQuantity(quantity);
 
-            var updateResult = await Persister.UpdateAsync(availabilityDto, cancellationToken);
+            var updateResult = await Persister
+                .UpdateAsync(availabilityDto, cancellationToken)
+                .ConfigureAwait(false);
             return updateResult.Match(
                 _ => Result<string>.Success(availabilityId.Value),
                 _ => Result<string>.Error("Error updating warehouse availability"));
@@ -63,31 +72,51 @@ namespace BrewUp.Warehouse.ReadModel.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var queryResult = await queries.GetByFilterAsync(a => a.WarehouseId == warehouseId.Value 
-                && a.BeerId == beerId.Value, 1, int.MaxValue, cancellationToken);
+            var queryResult = await queries
+                .GetByFilterAsync(
+                    a => a.WarehouseId == warehouseId.Value &&
+                         a.BeerId == beerId.Value,
+                    1,
+                    int.MaxValue,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             if (!queryResult.IsSuccess)
                 return Result<AvailabilityJson>.Error("Availability not found");
             
             queryResult.TryGetValue(out PagedResult<Availability> availabilityDto);
-            return availabilityDto.Results.Any() 
-                ? Result<AvailabilityJson>.Success(availabilityDto.Results.First().ToJson())
-                : Result<AvailabilityJson>.Error("No availability found");
+            if (!availabilityDto.Results.Any())
+                return Result<AvailabilityJson>.Error("No availability found");
+
+            return await SubtractReservationsAsync(
+                    availabilityDto.Results.First().ToJson(),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<Result<AvailabilityJson>> GetAvailabilityByBeerIdAsync(BeerId beerId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var queryResult = await queries.GetByFilterAsync(a => a.BeerId == beerId.Value, 0, 1, cancellationToken);
+            var queryResult = await queries
+                .GetByFilterAsync(
+                    a => a.BeerId == beerId.Value,
+                    0,
+                    1,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             if (!queryResult.IsSuccess) 
                 return Result<AvailabilityJson>.Error("Availability not found");
             
             queryResult.TryGetValue(out PagedResult<Availability> availabilityDto);
-            return availabilityDto.Results.Any() 
-                ? Result<AvailabilityJson>.Success(availabilityDto.Results.First().ToJson())
-                : Result<AvailabilityJson>.Error("No availability found");
+            if (!availabilityDto.Results.Any())
+                return Result<AvailabilityJson>.Error("No availability found");
+
+            return await SubtractReservationsAsync(
+                    availabilityDto.Results.First().ToJson(),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public Task<Result<ReorderThreshold>> GetReorderThresholdByBeerIdAsync(BeerId beerId,
@@ -97,6 +126,26 @@ namespace BrewUp.Warehouse.ReadModel.Services
             
             ReorderThreshold reorderThresold = new (beerId, new ThresholdQuantity(300, "Bottle"));
             return Task.FromResult(Result<ReorderThreshold>.Success(reorderThresold));
+        }
+
+        private async Task<Result<AvailabilityJson>> SubtractReservationsAsync(
+            AvailabilityJson availability,
+            CancellationToken cancellationToken)
+        {
+            var reservationResult = await stockReservationService
+                .GetReservedQuantityAsync(
+                    new WarehouseId(availability.WarehouseId),
+                    new BeerId(availability.BeerId),
+                    availability.UnitOfMeasure,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!reservationResult.IsSuccess)
+                return Result<AvailabilityJson>.Error(
+                    "Error retrieving stock reservations.");
+
+            reservationResult.TryGetValue(out decimal reservedQuantity);
+            availability.Quantity -= reservedQuantity;
+            return Result<AvailabilityJson>.Success(availability);
         }
     }
 }

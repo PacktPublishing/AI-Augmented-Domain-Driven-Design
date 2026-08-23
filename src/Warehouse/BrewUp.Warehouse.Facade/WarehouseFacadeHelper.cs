@@ -1,5 +1,6 @@
 ﻿using BrewUp.Warehouse.Domain;
 using BrewUp.Warehouse.Facade.Acl;
+using BrewUp.Warehouse.Facade.EventHandlers;
 using BrewUp.Warehouse.Infrastructure;
 using BrewUp.Warehouse.ReadModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,10 @@ public static class WarehouseFacadeHelper
         services.AddIntegrationEventHandler<SalesOrderCreatedIntegrationEventHandler>();
         services.AddIntegrationEventHandler<BeerCreatedEventHandler>();
         services.AddIntegrationEventHandler<RequestBeerAvailablityRaisedEventHandler>();
+        services.AddIntegrationEventHandler<StockReservationRequestedIntegrationEventHandler>();
+
+        services.AddDomainEventHandler<StockReservedIntegrationEventPublisher>();
+        services.AddDomainEventHandler<StockReservationFailedIntegrationEventPublisher>();
         
         return services;
     }

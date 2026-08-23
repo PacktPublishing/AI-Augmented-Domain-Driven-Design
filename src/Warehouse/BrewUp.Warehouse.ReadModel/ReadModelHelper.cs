@@ -16,14 +16,18 @@ public static class ReadModelHelper
         services.AddScoped<IWarehouseService, WarehouseService>();
         services.AddScoped<IShipmentService, ShipmentService>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IStockReservationService, StockReservationService>();
         services.AddScoped<IBeerService, BeerService>();
 
         services.AddScoped<IQueries<Shipment>, ShipmentQueries>();
         services.AddScoped<IQueries<Availability>, AvailabilityQueries>();
+        services.AddScoped<IQueries<StockReservation>, StockReservationQueries>();
         services.AddScoped<IQueries<Dtos.Warehouse>, WarehouseQueries>();
         services.AddScoped<IQueries<Beer>, BeerQueries>();
 
         services.AddDomainEventHandler<ShipmentPendingForPreparationEventHandler>();
+        services.AddDomainEventHandler<StockReservedEventHandler>();
+        services.AddDomainEventHandler<StockReservationFailedEventHandler>();
         
         return services;
     }
@@ -33,10 +37,12 @@ public static class ReadModelHelper
         services.AddScoped<IWarehouseService, WarehouseService>();
         services.AddScoped<IShipmentService, ShipmentService>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IStockReservationService, StockReservationService>();
         services.AddScoped<IBeerService, BeerService>();
 
         services.AddScoped<IQueries<Shipment>, ShipmentQueries>();
         services.AddScoped<IQueries<Availability>, AvailabilityQueries>();
+        services.AddScoped<IQueries<StockReservation>, StockReservationQueries>();
         services.AddScoped<IQueries<Dtos.Warehouse>, WarehouseQueries>();
         services.AddScoped<IQueries<Beer>, BeerQueries>();
         

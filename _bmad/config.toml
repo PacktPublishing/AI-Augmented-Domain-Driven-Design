@@ -11,7 +11,7 @@
 # ─────────────────────────────────────────────────────────────────
 
 [core]
-project_name = "DWX26"
+project_name = "brewup"
 document_output_language = "English"
 output_folder = "_bmad-output"
 

@@ -1,9 +1,9 @@
 # BrewUp Spec Kit Harness
 
-> Detailed explanation of the custom Spec Kit harness built for the DWX26 demo  
+> Detailed explanation of the custom Spec Kit harness built for the demo  
 > **Spec-Driven Development: Redefining the Software Architect in the AI Era**
 
-This document explains the custom harness built around GitHub Spec Kit and GitHub Copilot for the BrewUp DWX26 demo.
+This document explains the custom harness built around GitHub Spec Kit and GitHub Copilot for the BrewUp demo.
 
 The goal of this harness is not to make AI-generated output deterministic.
 

@@ -1,0 +1,7 @@
+{
+  "name": "trailing invalid TOML",
+  "target": "_bmad/custom/bmad-prd.toml",
+  "prefix": "",
+  "suffix": "\nthis is not TOML",
+  "expectedCheckId": "override-toml"
+}

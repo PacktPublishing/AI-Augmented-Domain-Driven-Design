@@ -1,0 +1,7 @@
+{
+  "name": "unexpected quoted workflow TOML key",
+  "target": "_bmad/custom/bmad-prd.toml",
+  "search": "[workflow]",
+  "replace": "[workflow]\n\"unexpected\" = \"not sparse\"",
+  "expectedCheckId": "override-fields"
+}
