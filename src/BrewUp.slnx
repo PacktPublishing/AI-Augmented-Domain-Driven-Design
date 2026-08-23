@@ -1,0 +1,65 @@
+<Solution>
+  <Folder Name="/30 Shared/">
+    <Project Path="BrewUp.Shared.Tests/BrewUp.Shared.Tests.csproj" />
+    <Project Path="BrewUp.Shared/BrewUp.Shared.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/" />
+  <Folder Name="/50 Modules/Dashboards/">
+    <Project Path="Dashboards/BrewUp.Dashboards.Domain/BrewUp.Dashboards.Domain.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.Entities/BrewUp.Dashboards.Entities.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.Facade/BrewUp.Dashboards.Facade.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.Infrastructure/BrewUp.Dashboards.Infrastructure.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.ReadModel/BrewUp.Dashboards.ReadModel.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.SharedKernel/BrewUp.Dashboards.SharedKernel.csproj" />
+    <Project Path="Dashboards/BrewUp.Dashboards.Tests/BrewUp.Dashboards.Tests.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/MasterData/">
+    <Project Path="MasterData/BrewUp.MasterData.Domain/BrewUp.MasterData.Domain.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.Entities/BrewUp.MasterData.Entities.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.Facade/BrewUp.MasterData.Facade.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.Infrastructure/BrewUp.MasterData.Infrastructure.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.ReadModel/BrewUp.MasterData.ReadModel.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.SharedKernel/BrewUp.MasterData.SharedKernel.csproj" />
+    <Project Path="MasterData/BrewUp.MasterData.Tests/BrewUp.MasterData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/Purchases/">
+    <Project Path="Purchases/BrewUp.Purchases.Domain/BrewUp.Purchases.Domain.csproj" />
+    <Project Path="Purchases/BrewUp.Purchases.Facade/BrewUp.Purchases.Facade.csproj" />
+    <Project Path="Purchases/BrewUp.Purchases.Infrastructure/BrewUp.Purchases.Infrastructure.csproj" />
+    <Project Path="Purchases/BrewUp.Purchases.ReadModel/BrewUp.Purchases.ReadModel.csproj" />
+    <Project Path="Purchases/BrewUp.Purchases.SharedKernel/BrewUp.Purchases.SharedKernel.csproj" />
+    <Project Path="Purchases/BrewUp.Purchases.Tests/BrewUp.Purchases.Tests.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/Sagas/">
+    <Project Path="Sagas/BrewUp.Sagas.Domain/BrewUp.Sagas.Domain.csproj" />
+    <Project Path="Sagas/BrewUp.Sagas.Facade/BrewUp.Sagas.Facade.csproj" />
+    <Project Path="Sagas/BrewUp.Sagas.Infrastructure/BrewUp.Sagas.Infrastructure.csproj" />
+    <Project Path="Sagas/BrewUp.Sagas.ReadModel/BrewUp.Sagas.ReadModel.csproj" />
+    <Project Path="Sagas/BrewUp.Sagas.SharedKernel/BrewUp.Sagas.SharedKernel.csproj" />
+    <Project Path="Sagas/BrewUp.Sagas.Tests/BrewUp.Sagas.Tests.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/Sales/">
+    <Project Path="Sales/BrewUp.Sales.Domain/BrewUp.Sales.Domain.csproj" />
+    <Project Path="Sales/BrewUp.Sales.Facade/BrewUp.Sales.Facade.csproj" />
+    <Project Path="Sales/BrewUp.Sales.Infrastructure/BrewUp.Sales.Infrastructure.csproj" />
+    <Project Path="Sales/BrewUp.Sales.ReadModel/BrewUp.Sales.ReadModel.csproj" />
+    <Project Path="Sales/BrewUp.Sales.SharedKernel/BrewUp.Sales.SharedKernel.csproj" />
+    <Project Path="Sales/BrewUp.Sales.Tests/BrewUp.Sales.Tests.csproj" />
+  </Folder>
+  <Folder Name="/50 Modules/Warehouse/">
+    <Project Path="Warehouse/BrewUp.Warehouse.Domain/BrewUp.Warehouse.Domain.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.Entities/BrewUp.Warehouse.Entities.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.Facade/BrewUp.Warehouse.Facade.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.Infrastructure/BrewUp.Warehouse.Infrastructure.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.ReadModel/BrewUp.Warehouse.ReadModel.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.SharedKernel/BrewUp.Warehouse.SharedKernel.csproj" />
+    <Project Path="Warehouse/BrewUp.Warehouse.Tests/BrewUp.Warehouse.Tests.csproj" />
+  </Folder>
+  <Folder Name="/80 Infrastructure/">
+    <Project Path="BrewUp.Infrastructure/BrewUp.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/90 Presentation/">
+    <Project Path="BrewUp.Rest.Tests/BrewUp.Rest.Tests.csproj" />
+    <Project Path="BrewUp.Rest/BrewUp.Rest.csproj" />
+  </Folder>
+</Solution>

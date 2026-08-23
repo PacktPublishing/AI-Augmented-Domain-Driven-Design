@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Lena" Version="1.1.0" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+        <PackageReference Include="Muflone" Version="10.2.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\BrewUp.Shared\BrewUp.Shared.csproj" />
+      <ProjectReference Include="..\BrewUp.Purchases.Domain\BrewUp.Purchases.Domain.csproj" />
+      <ProjectReference Include="..\BrewUp.Purchases.Infrastructure\BrewUp.Purchases.Infrastructure.csproj" />
+      <ProjectReference Include="..\BrewUp.Purchases.ReadModel\BrewUp.Purchases.ReadModel.csproj" />
+    </ItemGroup>
+
+</Project>

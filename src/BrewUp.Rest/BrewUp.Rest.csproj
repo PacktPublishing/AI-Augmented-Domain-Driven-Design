@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+            <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+            <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.1" />
+            <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+            <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="10.0.8" />
+            <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+            <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+            <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+            <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+            <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+            <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.15.2" />
+            <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
+            <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+            <PackageReference Include="xunit.extensibility.core" Version="2.9.3" />
+            <PackageReference Include="Serilog" Version="4.3.1" />
+            <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+            <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
+            <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+            <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\BrewUp.Infrastructure\BrewUp.Infrastructure.csproj" />
+      <ProjectReference Include="..\Dashboards\BrewUp.Dashboards.Facade\BrewUp.Dashboards.Facade.csproj" />
+      <ProjectReference Include="..\MasterData\BrewUp.MasterData.Facade\BrewUp.MasterData.Facade.csproj" />
+      <ProjectReference Include="..\Purchases\BrewUp.Purchases.Facade\BrewUp.Purchases.Facade.csproj" />
+      <ProjectReference Include="..\Sagas\BrewUp.Sagas.Facade\BrewUp.Sagas.Facade.csproj" />
+      <ProjectReference Include="..\Sales\BrewUp.Sales.Facade\BrewUp.Sales.Facade.csproj" />
+      <ProjectReference Include="..\Warehouse\BrewUp.Warehouse.Facade\BrewUp.Warehouse.Facade.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="BrewUp.Rest.Tests" />
+    </ItemGroup>
+
+</Project>
