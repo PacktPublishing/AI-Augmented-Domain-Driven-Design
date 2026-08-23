@@ -20,10 +20,11 @@ public sealed class SagaSalesOrderAvailabilityCheckedIntegrationEventHandler(
 
         var canConfirmSalesOrderResult = await salesOrderService
             .ChkAvailabilityForSagaRowsAsync(@event.Rows, cancellationToken).ConfigureAwait(false);
-        // if (canConfirmSalesOrderResult.IsError)
-        //     return;
+        if (canConfirmSalesOrderResult.IsError)
+            return;
 
-        AcceptSalesOrder command = new(new SalesOrderId(@event.SalesOrderId), MessageHelpers.GetCorrelationId(@event));
+        ConfirmSalesOrder command = new(new SalesOrderId(@event.SalesOrderId), @event.PaymentAuthorizationId,
+            @event.StockReservationId, MessageHelpers.GetCorrelationId(@event));
         await serviceBus.SendAsync(command, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -2,6 +2,7 @@
 using BrewUp.Sales.SharedKernel.CustomTypes;
 using BrewUp.Sales.SharedKernel.Enums;
 using BrewUp.Sales.SharedKernel.Messages.Events;
+using BrewUp.Shared.DomainIds;
 using BrewUp.Shared.ExternalContracts.Sales;
 using Muflone.Core;
 using Muflone.CustomTypes;
@@ -15,6 +16,8 @@ public class SalesOrder : AggregateRoot
     private Customer _customer = null!;
     private SalesOrderDeliveryDate _salesOrderDeliveryDate = null!;
     private List<SalesOrderRow> _rows = [];
+    private PaymentAuthorizationId? _paymentAuthorizationId;
+    private StockReservationId? _stockReservationId;
     
     private SalesOrderStatus _salesOrderStatus;
     
@@ -119,10 +122,35 @@ public class SalesOrder : AggregateRoot
     {
         RaiseEvent(new SalesOrderAccepted(new SalesOrderId(Id.Value), correlationId));        
     }
+
+    internal void ConfirmOrder(
+        PaymentAuthorizationId paymentAuthorizationId,
+        StockReservationId stockReservationId,
+        Guid correlationId)
+    {
+        ArgumentNullException.ThrowIfNull(paymentAuthorizationId);
+        ArgumentNullException.ThrowIfNull(stockReservationId);
+
+        if (string.IsNullOrWhiteSpace(paymentAuthorizationId.Value))
+            throw new ArgumentException("Payment authorization id is required.", nameof(paymentAuthorizationId));
+
+        if (string.IsNullOrWhiteSpace(stockReservationId.Value))
+            throw new ArgumentException("Stock reservation id is required.", nameof(stockReservationId));
+
+        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), paymentAuthorizationId, stockReservationId,
+            correlationId));
+    }
     
     private void Apply(SalesOrderAccepted @event)
     {
         _salesOrderStatus = SalesOrderStatus.Accepted;
+    }
+
+    private void Apply(SalesOrderConfirmed @event)
+    {
+        _paymentAuthorizationId = @event.PaymentAuthorizationId;
+        _stockReservationId = @event.StockReservationId;
+        _salesOrderStatus = SalesOrderStatus.Confirmed;
     }
 
     private void Apply(SalesOrderClosed @event)

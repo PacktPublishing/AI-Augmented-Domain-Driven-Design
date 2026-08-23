@@ -77,7 +77,7 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
             .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
             .ConfigureAwait(false);
 
-        aggregate!.MarkAvailabilityChecked(correlationId, @event.Rows);
+        aggregate!.MarkAvailabilityChecked(correlationId, @event.StockReservationId, @event.Rows);
         await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
     }
     

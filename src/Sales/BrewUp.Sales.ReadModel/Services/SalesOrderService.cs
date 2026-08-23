@@ -89,6 +89,25 @@ internal sealed class SalesOrderService([FromKeyedServices("sales")] IPersister 
             _ => Result<string>.Error("Error updating sales order"));
     }
 
+    public async Task<Result<string>> ConfirmSalesOrderAsync(SalesOrderId salesOrderId,
+        PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var persisterResult = await Persister.GetByIdAsync<SalesOrder>(salesOrderId.Value, cancellationToken);
+        if (!persisterResult.IsSuccess)
+            return Result<string>.Error("Error retrieving sales order");
+
+        persisterResult.TryGetValue(out SalesOrder salesOrder);
+        salesOrder.ConfirmOrder(paymentAuthorizationId, stockReservationId);
+
+        var updateResult = await Persister.UpdateAsync(salesOrder, cancellationToken);
+        return updateResult.Match(
+            _ => Result<string>.Success(salesOrderId.Value),
+            _ => Result<string>.Error("Error updating sales order"));
+    }
+
     public async Task<Result<CustomerTotalPurchased>> GetCustomerTotalPurchasedAsync(CustomerId customerId,
         CancellationToken cancellationToken)
     {

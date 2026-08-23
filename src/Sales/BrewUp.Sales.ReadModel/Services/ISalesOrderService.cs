@@ -17,6 +17,10 @@ public interface ISalesOrderService
 
     Task<Result<string>> AddBeersToSalesOrderAsync(SalesOrderId salesOrderId, IEnumerable<SalesOrderRowJson> rows,
         CancellationToken cancellationToken);
+
+    Task<Result<string>> ConfirmSalesOrderAsync(SalesOrderId salesOrderId,
+        PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId,
+        CancellationToken cancellationToken);
     
     Task<Result<CustomerTotalPurchased>> GetCustomerTotalPurchasedAsync(CustomerId customerId, CancellationToken cancellationToken);
 

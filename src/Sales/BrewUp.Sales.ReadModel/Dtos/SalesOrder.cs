@@ -18,6 +18,8 @@ public class SalesOrder : DtoBase
     public IEnumerable<SalesOrderRow> Rows { get; private set; } = [];
 
     public string Status { get; private set; } = string.Empty;
+    public string? PaymentAuthorizationId { get; private set; }
+    public string? StockReservationId { get; private set; }
 
     protected SalesOrder()
     { }
@@ -45,6 +47,13 @@ public class SalesOrder : DtoBase
 
     public void CompleteOrder() => Status = Shared.Helpers.OrderState.Completed.Name;
 
+    public void ConfirmOrder(PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId)
+    {
+        PaymentAuthorizationId = paymentAuthorizationId.Value;
+        StockReservationId = stockReservationId.Value;
+        Status = Shared.Helpers.OrderState.Confirmed.Name;
+    }
+
     public SalesOrderJson ToJson() => new()
     {
         Id = Id,
@@ -54,6 +63,8 @@ public class SalesOrder : DtoBase
         CustomerName = CustomerName,
         DeliveryDate = DateTime.MaxValue,
         Rows = Rows.Select(r => r.ToJson),
-        Status = Status
+        Status = Status,
+        PaymentAuthorizationId = PaymentAuthorizationId,
+        StockReservationId = StockReservationId
     };
 }

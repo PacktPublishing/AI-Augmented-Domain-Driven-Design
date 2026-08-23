@@ -19,6 +19,7 @@ public class SalesOrderSaga : AggregateRoot
     private CustomerJson _customer;
     private DateTime _salesOrderDeliveryDate;
     private List<SalesOrderRowJson> _rows = [];
+    private PaymentAuthorizationId _paymentAuthorizationId = null!;
     
     private SagaState _status;
     
@@ -72,7 +73,9 @@ public class SalesOrderSaga : AggregateRoot
 
     internal void MarkCustomerBudgetAsVerified(CustomerJson customer, Guid correlationId)
     {
-        RaiseEvent(new SagaCustomerBudgetVerified(new CustomerId(_customerId), correlationId, 
+        var paymentAuthorizationId = new PaymentAuthorizationId(correlationId.ToString());
+        RaiseEvent(new SagaCustomerBudgetVerified(new CustomerId(_customerId), correlationId,
+            paymentAuthorizationId,
             customer,
             new CreateSalesOrderJson
             {
@@ -84,10 +87,12 @@ public class SalesOrderSaga : AggregateRoot
             }));
     }
 
-    internal void MarkAvailabilityChecked(Guid correlationId, IEnumerable<ItemRequested> rows)
+    internal void MarkAvailabilityChecked(Guid correlationId, StockReservationId? stockReservationId,
+        IEnumerable<ItemRequested> rows)
     {
-        RaiseEvent(new SagaSalesOrderAvailablityChecked(new IntegrationId(Id.Value), 
-            correlationId, Id.Value, rows));
+        RaiseEvent(new SagaSalesOrderAvailablityChecked(new IntegrationId(Id.Value),
+            correlationId, Id.Value, _paymentAuthorizationId,
+            stockReservationId ?? new StockReservationId(string.Empty), rows));
     }
 
     private void Apply(SagaSalesOrderAvailablityChecked @event)
@@ -103,6 +108,7 @@ public class SalesOrderSaga : AggregateRoot
     private void Apply(SagaCustomerBudgetVerified @event)
     {
         _customer = @event.Customer;
+        _paymentAuthorizationId = @event.PaymentAuthorizationId;
     }
 
     internal void MarkSalesOrderAsPlaced(Guid correlationId)

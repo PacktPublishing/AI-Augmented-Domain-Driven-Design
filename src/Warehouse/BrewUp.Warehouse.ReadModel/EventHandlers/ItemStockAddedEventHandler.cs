@@ -8,9 +8,9 @@ namespace BrewUp.Warehouse.ReadModel.EventHandlers;
 
 public sealed class ItemStockAddedEventHandler(
     IAvailabilityService availabilityService,
-    ILoggerFactory loggerFactory) : DomainEventHandlerAsync<AvailabilityCreated>(loggerFactory)
+    ILoggerFactory loggerFactory) : DomainEventHandlerAsync<ItemStockAdded>(loggerFactory)
 {
-    public override async Task HandleAsync(AvailabilityCreated @event, CancellationToken cancellationToken = default)
+    public override async Task HandleAsync(ItemStockAdded @event, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
