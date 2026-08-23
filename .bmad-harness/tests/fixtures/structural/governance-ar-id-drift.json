@@ -1,0 +1,8 @@
+{
+  "name": "AR rule identifier drift",
+  "target": ".bmad-harness/governance/brewup-module-structure.md",
+  "search": "### AR-002",
+  "replace": "### Architecture standard",
+  "expectedCheckId": "governance-sync",
+  "expectedText": "AR-002"
+}

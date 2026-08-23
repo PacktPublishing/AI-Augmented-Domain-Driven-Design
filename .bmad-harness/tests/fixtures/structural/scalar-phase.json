@@ -1,0 +1,7 @@
+{
+  "name": "scalar phaseCoverage value",
+  "target": ".bmad-harness/manifest.json",
+  "search": "\"analysis\": [\"bmad-product-brief\"]",
+  "replace": "\"analysis\": \"bmad-product-brief\"",
+  "expectedCheckId": "manifest-phases"
+}

@@ -36,7 +36,7 @@ Follow-up TODOs:
   - TODO(AGENTS): Add a dedicated architecture/module-structure guard agent or extend existing plan/task guards.
 -->
 
-# Constitution
+# DWX26 Constitution
 
 ## Core Principles
 

@@ -1,0 +1,7 @@
+{
+  "name": "unexpected workflow TOML field",
+  "target": "_bmad/custom/bmad-prd.toml",
+  "search": "[workflow]",
+  "replace": "[workflow]\nunexpected = \"not sparse\"",
+  "expectedCheckId": "override-fields"
+}

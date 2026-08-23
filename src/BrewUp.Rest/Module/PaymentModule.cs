@@ -6,6 +6,7 @@ namespace BrewUp.Rest.Module;
 public class PaymentModule : IModule
 {
     public bool IsEnabled => true;
+
     public int Order => 0;
 
     public IServiceCollection Register(WebApplicationBuilder builder)

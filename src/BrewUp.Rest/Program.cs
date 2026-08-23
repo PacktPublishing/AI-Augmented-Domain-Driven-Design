@@ -11,6 +11,7 @@ builder.RegisterModules([
     new OpenApiModule(),
     new MasterDataModule(),
     new PurchasesModule(),
+    new PaymentModule(),
     new SalesModule(),
     new WarehouseModule(),
     new DashboardsModule(),

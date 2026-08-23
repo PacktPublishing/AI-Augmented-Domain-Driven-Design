@@ -1,0 +1,7 @@
+{
+  "name": "story guard canonical path drift",
+  "target": ".github/agents/bmad-brewup-story-guard.agent.md",
+  "search": "_bmad-output/planning-artifacts/prd/index.md",
+  "replace": "_bmad-output/planning-artifacts/wrong-prd/index.md",
+  "expectedCheckId": "agent-artifact-path"
+}

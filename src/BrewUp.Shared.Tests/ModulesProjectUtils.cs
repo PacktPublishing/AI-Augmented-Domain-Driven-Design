@@ -49,14 +49,7 @@ public static class ModulesProjectUtils
         "BrewUp.Purchases.Infrastructure",
         "BrewUp.Purchases.ReadModel", 
         "BrewUp.Purchases.SharedKernel",
-        "BrewUp.Purchases.Tests",
-        
-        "BrewUp.Payment.Domain",
-        "BrewUp.Payment.Facade",
-        "BrewUp.Payment.Infrastructure",
-        "BrewUp.Payment.ReadModel",
-        "BrewUp.Payment.SharedKernel",
-        "BrewUp.Payment.Tests"
+        "BrewUp.Purchases.Tests"
     ];
 
     public static IEnumerable<string> GetModuleProjects(bool includeFacadeProjects, IEnumerable<string> excludeModules)

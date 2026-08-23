@@ -28,7 +28,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\BrewUp.Shared.Tests\BrewUp.Shared.Tests.csproj" />
-      <ProjectReference Include="..\BrewUp.Warehouse.Domain\BrewUp.Warehouse.Domain.csproj" />
       <ProjectReference Include="..\BrewUp.Warehouse.Facade\BrewUp.Warehouse.Facade.csproj" />
     </ItemGroup>
 
