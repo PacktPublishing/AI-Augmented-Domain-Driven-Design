@@ -2,159 +2,159 @@
 
 **Feature Branch**: `001-order-confirmation`
 
-**Created**: 2026-06-25
+**Created**: 2026-06-27
 
 **Status**: Draft
 
 **Input**: User description: "Implement order confirmation for BrewUp. An order can be confirmed when: the customer payment has been authorized; all requested beers are available in the warehouse. When the order is confirmed, reserve the stock."
 
-## Domain Constraints (Authoritative)
+## Domain Authorities & Ownership *(mandatory — preserves BC-000 … BC-011)*
 
-<!--
-  These constraints are carried from the BrewUp Sales Order Confirmation domain carrier
-  (.specify/memory/domain-carriers/brewup-sales-order-confirmation.md) and are AUTHORITATIVE.
-  They MUST be preserved in every downstream artifact (clarifications, plan, tasks, code, tests).
-  A generated artifact that violates these is architecturally misaligned, not merely incomplete.
--->
+This feature spans **three separate domain authorities**. Each owns its own decisions. None may own or reproduce another's decision.
 
-- **Three separate domain authorities**: **Sales** (commercial commitment), **Payment** (payment authorization), **Warehouse** (physical stock). Sales may depend on decisions produced by Payment and Warehouse but MUST NOT own the models or processes that produce those decisions.
-- **Sales owns the Sales Order lifecycle** — its commercial status, customer demand, and the transition to `Confirmed` once required external evidence is present. Use the term **Sales Order**, never a generic "Order".
-- **Payment Authorization is an external decision** produced by Payment. Sales may request it through an integration boundary and may store a `PaymentAuthorizationId` as evidence, but Sales MUST NOT authorize payment, interpret payment-provider timeouts, void authorizations, or issue refunds.
-- **Stock Reservation is an external decision** produced by Warehouse. Sales may request it through an integration boundary and may store a `StockReservationId` as evidence, but Sales MUST NOT reserve, release, or decrement physical stock, nor act as the authority of truth for stock availability.
-- **Availability is not a durable fact.** Only a Stock Reservation is durable enough to support Sales Order confirmation.
-- **External decision references, not embedded models.** `PaymentAuthorizationId` and `StockReservationId` are evidence that another bounded context made a decision. They are not a back door for Sales to load, modify, or own another context's aggregate. The Sales Order aggregate MUST NOT embed Payment or Warehouse domain models.
-- **Confirmed requires evidence.** A Sales Order MUST NOT become `Confirmed` unless the required external decision references are present. For the base scenario, confirmation requires **both** `PaymentAuthorizationId` and `StockReservationId`. A `Confirmed` state with either reference missing is an invalid state.
-- **Reacting is not owning.** Sales may react to `PaymentAuthorized` and `StockReserved` outcomes; it MUST NOT produce them.
-- **No policy invention.** The specification MUST NOT silently invent retry, cancellation, refund, void, customer-notification, or reservation-expiration policy. Unknown business decisions remain explicit as `[NEEDS CLARIFICATION]` or **Open Questions** for the domain expert to resolve.
+| Authority | Owns | Must NOT own (in this feature) |
+|---|---|---|
+| **Sales** | Sales Order lifecycle, commercial status, customer demand, the transition to `Confirmed` once required external evidence is present | Payment authorization, stock availability-as-truth, stock reservation/release, refunds, voids, shipment, invoicing |
+| **Payment** | Payment authorization request and outcome, provider-timeout interpretation, void, refund | The Sales Order lifecycle; stock |
+| **Warehouse** | Physical stock, availability-as-truth, stock reservation, stock release, reservation expiration | The Sales Order lifecycle; payment |
+
+**Authoritative carried rules** (from the domain carrier; generated artifacts MUST preserve these IDs):
+
+- **BC-001 / BC-002** — Sales owns the Sales Order aggregate and its lifecycle; it must not embed Payment or Warehouse domain models.
+- **BC-003 / BC-004** — Payment Authorization is an **external decision** produced by Payment. Sales may *request* it and *react* to its outcome, storing `PaymentAuthorizationId` as evidence; Sales must not produce the authorization.
+- **BC-005 / BC-006 / BC-007** — Stock Reservation is an **external decision** produced by Warehouse. Sales may *request* it and *react* to its outcome, storing `StockReservationId` as evidence; Sales must not reserve, release, or decrement stock. Availability is **not** a durable fact — only a Stock Reservation is durable enough to support confirmation.
+- **BC-008 / BC-009** — Reacting to an outcome is not owning it. Sales stores external decision references only as evidence, never as a back door into another context's aggregate.
+- **BC-010** — A Sales Order must not become `Confirmed` unless the required external decision references (`PaymentAuthorizationId` **and** `StockReservationId`) are both present.
+- **BC-011** — Unresolved business policy stays explicit (see *Open Questions*); the spec must not silently decide it.
+
+> Terminology: this feature uses **Sales Order**, never generic *Order*, for the Sales-owned aggregate.
+
+## Clarifications
+
+### Session 2026-06-27
+
+- Q: How should a Sales Order become Confirmed once both evidence references exist? → A: A coordinator dispatches a Confirm command to Sales when the confirmation conditions hold; Sales still owns and performs the transition (resolves OQ-6).
+- Q: Can a Sales Order be confirmed when only some requested beers can be reserved? → A: Yes — partial confirmation is allowed; the order confirms for the reservable subset Warehouse reserves (resolves OQ-2).
+- Q: What happens when one evidence succeeds but the other fails? → A: Remain unconfirmed; no Sales-owned compensation; release/void/refund stay with Warehouse/Payment and are out of scope (resolves OQ-1).
+- Q: Should payment authorization and stock reservation be requested in parallel or in sequence? → A: In parallel (resolves OQ-5).
+- Q: How should Sales behave toward a payment-provider timeout? → A: Sales does not interpret timeouts; it reacts only to definitive Payment outcomes that Payment emits (resolves OQ-3).
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Confirm a Sales Order with payment authorized and stock reserved (Priority: P1)
+### User Story 1 - Confirm a Sales Order backed by authorized payment and reserved stock (Priority: P1)
 
-As the Sales context, when a Sales Order has evidence that the customer's payment has been authorized and that the requested beers have been reserved in the warehouse, the Sales Order is transitioned to `Confirmed`, recording both pieces of external evidence.
+A customer has placed a Sales Order for one or more beers. Before the order is committed as a binding sale, the business needs assurance that the customer can pay and that the beers can actually be delivered. The Sales Order becomes `Confirmed` only when Payment has authorized the customer's payment **and** Warehouse has produced a durable Stock Reservation for all requested beers. Confirmation is the commercial commitment that downstream fulfilment relies on.
 
-**Why this priority**: This is the core commercial outcome of the feature — it is the single behavior that delivers the business value of "an order can be confirmed". Without it there is no feature. It is the MVP.
+**Why this priority**: This is the core of the feature and the minimum viable outcome. Without it there is no Sales Order confirmation. It exercises the full evidence-gated confirmation invariant across all three authorities.
 
-**Independent Test**: Provide a Sales Order that has a recorded `PaymentAuthorizationId` (from a Payment authorization outcome) and a recorded `StockReservationId` (from a Warehouse reservation outcome), trigger confirmation, and verify the Sales Order transitions to `Confirmed` and both references are persisted on the aggregate. Delivers the headline value independently of how the evidence was obtained.
+**Independent Test**: Given a placed Sales Order, simulate a Payment authorization outcome and a Warehouse stock reservation outcome for the requested beers, then verify the Sales Order transitions to `Confirmed` and records both `PaymentAuthorizationId` and `StockReservationId`.
 
 **Acceptance Scenarios**:
 
-1. **Given** a Sales Order awaiting confirmation that holds a valid `PaymentAuthorizationId` and a valid `StockReservationId`, **When** confirmation is attempted, **Then** the Sales Order status becomes `Confirmed` and both references remain recorded as evidence.
-2. **Given** a Sales Order that becomes `Confirmed`, **When** the confirmation completes, **Then** a Sales-owned domain event announcing the confirmation is raised so other contexts can react.
-3. **Given** a Sales Order already in `Confirmed` status, **When** confirmation is attempted again, **Then** the operation is idempotent and does not produce a second confirmation outcome or a duplicate stock reservation request.
+1. **Given** a placed Sales Order with requested beers and no external evidence yet, **When** Payment reports the customer payment as authorized and Warehouse reports the requested beers as reserved, and the coordinator dispatches the Confirm command, **Then** the Sales Order becomes `Confirmed` and stores both `PaymentAuthorizationId` and `StockReservationId`.
+2. **Given** a placed Sales Order, **When** only the payment authorization evidence is present and the stock reservation evidence is absent, **Then** the Sales Order does **not** become `Confirmed`.
+3. **Given** a placed Sales Order, **When** only the stock reservation evidence is present and the payment authorization evidence is absent, **Then** the Sales Order does **not** become `Confirmed`.
+4. **Given** a Sales Order that is already `Confirmed`, **When** the same confirmation evidence arrives again or the Confirm command is dispatched again, **Then** the Sales Order remains `Confirmed` exactly once and no duplicate commitment is recorded (idempotent confirmation).
+5. **Given** a placed Sales Order, **When** Payment authorizes the payment and Warehouse reserves a subset of the requested beers, and the coordinator dispatches the Confirm command, **Then** the Sales Order becomes `Confirmed` for the reserved subset and stores the `StockReservationId` for that reservation (partial confirmation).
 
 ---
 
-### User Story 2 - Reserve stock as part of confirming the order (Priority: P2)
+### User Story 2 - Request the external decisions that confirmation depends on (Priority: P2)
 
-As the Sales context, when a Sales Order satisfies the commercial preconditions for confirmation (the customer's payment is authorized and the requested beers are reported available), Sales requests the Warehouse to reserve the stock and records the resulting `StockReservationId` as the durable evidence that supports confirmation.
+For a Sales Order to gather the evidence it needs, Sales must ask Payment to authorize the customer's payment and ask Warehouse to reserve stock for the requested beers. Sales issues these requests across an integration boundary and then waits to react to the outcomes; it never performs authorization or reservation itself.
 
-**Why this priority**: The feature explicitly requires that "when the order is confirmed, reserve the stock". Because availability is not a durable fact, the reservation outcome is what makes confirmation safe and meaningful. This slice turns a transient availability signal into durable evidence.
+**Why this priority**: Confirmation (P1) reacts to outcomes; this story produces the requests that cause those outcomes to exist. It is required for an end-to-end flow but is separable from the pure confirmation invariant, which can be tested by injecting outcomes directly.
 
-**Independent Test**: Given a Sales Order with an authorized payment and reported beer availability, trigger the reservation step and verify that Sales emits a stock-reservation request across the Warehouse integration boundary and, upon receiving the `StockReserved` outcome, records the `StockReservationId` — without Sales mutating any warehouse stock itself.
+**Independent Test**: Given a placed Sales Order, verify that Sales emits a request for payment authorization to Payment and a request for stock reservation to Warehouse for the requested beers, without Sales performing either decision.
 
 **Acceptance Scenarios**:
 
-1. **Given** a Sales Order with an authorized payment and reported availability for every requested beer, **When** the reservation step runs, **Then** Sales requests a stock reservation from Warehouse through the integration boundary and does not itself decrement, reserve, or mutate warehouse stock.
-2. **Given** Warehouse produces a `StockReserved` outcome for the order, **When** Sales receives it, **Then** Sales records the `StockReservationId` as evidence on the Sales Order.
-3. **Given** the requested beers span multiple order rows, **When** the reservation is requested, **Then** the reservation request reflects every requested beer and quantity on the order.
+1. **Given** a placed Sales Order, **When** the order enters the confirmation flow, **Then** Sales requests payment authorization from Payment for the order's amount.
+2. **Given** a placed Sales Order, **When** the order enters the confirmation flow, **Then** Sales requests a stock reservation from Warehouse for all requested beers.
+3. **Given** Sales has requested an external decision, **When** the corresponding outcome (authorized / reserved, or the negative outcomes) is reported, **Then** Sales records the outcome as evidence and reacts accordingly — it does not re-decide the outcome.
 
 ---
 
-### User Story 3 - Withhold confirmation when required evidence is missing (Priority: P3)
+### User Story 3 - Withhold confirmation when evidence is negative or missing (Priority: P2)
 
-As the Sales context, when either the customer's payment has not been authorized or the requested beers cannot be reserved, the Sales Order is NOT transitioned to `Confirmed` and remains in its pre-confirmation status awaiting resolution.
+When Payment declines authorization, or Warehouse cannot reserve all requested beers, the required evidence for confirmation does not exist. The Sales Order must remain unconfirmed and must surface the unmet condition rather than silently confirming or inventing a remediation policy.
 
-**Why this priority**: Protects the core invariant (BC-010): a Sales Order must never reach `Confirmed` without both pieces of evidence. It guards against an over-eager confirmation but is secondary to first delivering the happy path.
+**Why this priority**: Protects the confirmation invariant against false positives. The negative path is as important as the happy path for a binding commercial commitment.
 
-**Independent Test**: Provide a Sales Order missing one required reference (no `PaymentAuthorizationId`, or no `StockReservationId`), attempt confirmation, and verify the order does not become `Confirmed` and stays in a valid pre-confirmation status.
+**Independent Test**: Given a placed Sales Order, report a declined payment authorization and/or a rejected stock reservation, and verify the Sales Order stays unconfirmed.
 
 **Acceptance Scenarios**:
 
-1. **Given** a Sales Order with a recorded `StockReservationId` but no `PaymentAuthorizationId`, **When** confirmation is attempted, **Then** the Sales Order does not become `Confirmed`.
-2. **Given** a Sales Order with a recorded `PaymentAuthorizationId` but no `StockReservationId`, **When** confirmation is attempted, **Then** the Sales Order does not become `Confirmed`.
-3. **Given** a Sales Order with neither reference recorded, **When** confirmation is attempted, **Then** the Sales Order does not become `Confirmed` and no invalid state is persisted.
+1. **Given** a placed Sales Order, **When** Payment reports the authorization as declined, **Then** the Sales Order does **not** become `Confirmed`.
+2. **Given** a placed Sales Order, **When** Warehouse reports that one or more requested beers cannot be reserved, **Then** the Sales Order does **not** become `Confirmed`.
+3. **Given** a placed Sales Order with no evidence, **When** no outcomes have arrived, **Then** the Sales Order remains in its pre-confirmation status and exposes which evidence is still outstanding.
 
 ---
 
 ### Edge Cases
 
-- **Payment authorized but stock cannot be reserved**: The order has a `PaymentAuthorizationId` but Warehouse cannot reserve all requested beers. The Sales Order remains in its pre-confirmation status (it does not become `Confirmed`); the Payment authority independently handles any release/void of the authorization according to its own rules, and Sales takes no further compensating action.
-- **Partial availability**: Some requested beers are available/reservable and others are not. Whether a Sales Order may be partially reserved/confirmed is a domain decision. See Open Questions.
-- **Stale availability**: Availability was reported but stock is no longer reservable at reservation time (because availability is not durable). Confirmation must rely on the reservation outcome, not the earlier availability signal.
-- **Reservation outcome never arrives / times out**: How long Sales waits for a `StockReserved` outcome, and what happens on timeout, is undefined here. See Open Questions.
-- **Duplicate confirmation / duplicate reservation**: Re-processing the same confirmation trigger must not create a second reservation or a second confirmation (idempotency).
-- **Reservation expiration while payment pending**: How long a stock reservation may remain active before payment evidence is present is undefined. See Open Questions.
+- **Partial stock**: Warehouse can reserve some, but not all, requested beers. Partial confirmation is allowed (clarified OQ-2): the Sales Order confirms for the reservable subset; handling of the unreserved remainder is not owned by Sales and is out of scope here.
+- **One side succeeds, the other fails**: payment authorized but nothing can be reserved, or stock reserved but payment declined. The Sales Order remains unconfirmed with **no Sales-owned compensation** (clarified OQ-1); release/void/refund stay with Warehouse/Payment and are out of scope.
+- **Payment-provider timeout**: the provider neither clearly authorizes nor declines. Sales does **not** interpret it (clarified OQ-3); Sales reacts only to definitive Payment outcomes (authorized / declined / explicit unknown) that Payment emits.
+- **Reservation lifetime**: a Stock Reservation may expire while payment is still pending. Expiration policy is owned by **Warehouse** — see OQ-4.
+- **Duplicate / out-of-order outcomes**: the same outcome arrives twice, or outcomes arrive in an unexpected order. Confirmation must be idempotent (FR-009).
+- **Evidence for a non-existent or already-confirmed Sales Order**: outcomes reference a Sales Order that is missing or already `Confirmed`.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The Sales context MUST own the transition of a Sales Order to a `Confirmed` status.
-- **FR-002**: The Sales context MUST NOT transition a Sales Order to `Confirmed` unless it holds both a `PaymentAuthorizationId` (evidence of an authorized payment) and a `StockReservationId` (evidence of a reserved stock) for that order.
-- **FR-003**: The Sales context MUST treat `PaymentAuthorizationId` and `StockReservationId` solely as external decision references (evidence), and MUST NOT embed Payment or Warehouse domain models within the Sales Order aggregate.
-- **FR-004**: When a Sales Order satisfies the preconditions for confirmation, the Sales context MUST request a stock reservation from the Warehouse context through an integration boundary, rather than reserving, decrementing, or otherwise mutating warehouse stock itself.
-- **FR-005**: Upon receiving a stock-reservation outcome from Warehouse, the Sales context MUST record the `StockReservationId` as evidence on the corresponding Sales Order.
-- **FR-006**: The Sales context MUST rely on the durable stock-reservation outcome (not a transient availability signal) as the stock-side precondition for confirmation.
-- **FR-007**: The Sales context MUST NOT authorize payment, interpret payment-provider timeouts, void payment authorizations, or issue refunds; it MAY only request payment authorization through an integration boundary and react to the resulting outcome.
-- **FR-008**: When a Sales Order becomes `Confirmed`, the Sales context MUST raise a Sales-owned domain event communicating the confirmation so other contexts may react.
-- **FR-009**: Confirmation MUST be idempotent: re-processing the confirmation trigger for an already-`Confirmed` Sales Order MUST NOT produce a second confirmation outcome nor a duplicate stock-reservation request.
-- **FR-010**: A Sales Order with a `Confirmed` status and a missing required reference MUST be treated as an invalid state and MUST NOT be persisted or produced.
-- **FR-011**: The Sales context MUST NOT invent retry, cancellation, refund, void, customer-notification, or reservation-expiration policy; any such behavior MUST be modeled as an external responsibility, an explicitly out-of-scope behavior, or an open question.
-- **FR-012**: The existing Sales Order saga/process manager (Sagas context) MUST coordinate the confirmation flow across Payment and Warehouse and instruct the Sales context when the confirmation preconditions are met; the Sales context reacts to that instruction and to the Payment and Warehouse outcomes, and MUST NOT own the cross-context orchestration itself.
-- **FR-013**: The system MUST record sufficient evidence on the Sales Order to demonstrate, at confirmation time, that both the payment authorization and the stock reservation decisions were made by their owning authorities.
-- **FR-014**: Releasing or voiding a payment authorization when a stock reservation ultimately fails is entirely outside the Sales scope; the Payment authority owns that decision based on its own rules, and Sales MUST NOT signal, request, or perform it.
+- **FR-001**: Sales MUST own the Sales Order lifecycle and the transition to `Confirmed`. (BC-001)
+- **FR-002**: A Sales Order MUST become `Confirmed` only when **both** of the following external decision references are present: `PaymentAuthorizationId` (evidence that Payment authorized the customer payment) and `StockReservationId` (evidence that Warehouse reserved the requested beers). Under the partial-confirmation policy (FR-014), the reservation referenced by `StockReservationId` MAY cover all or a subset of the requested beers. (BC-010)
+- **FR-003**: Sales MUST store `PaymentAuthorizationId` and `StockReservationId` as **external decision references** (evidence only), and MUST NOT embed Payment or Warehouse domain models inside the Sales Order. (BC-002, BC-009)
+- **FR-004**: Sales MUST NOT authorize payment, interpret payment-provider timeouts, void authorizations, or issue refunds. These remain Payment's decisions. Sales MUST react only to **definitive** Payment outcomes (authorized / declined / explicit unknown) emitted by Payment. (BC-003, BC-004)
+- **FR-005**: Sales MUST NOT check physical stock as the authority of truth, nor reserve, release, or decrement stock. These remain Warehouse's decisions. (BC-005, BC-006, BC-007)
+- **FR-006**: Sales MUST treat beer availability as non-durable; a Sales Order MUST rely on a durable **Stock Reservation** outcome from Warehouse — not a transient availability check — as the stock evidence for confirmation. (BC-006, BC-007)
+- **FR-007**: Sales MUST be able to **request** payment authorization from Payment and **request** stock reservation from Warehouse across an integration boundary, **in parallel** (the two requests have no ordering dependency), without performing either decision itself. (BC-004, BC-006, BC-008)
+- **FR-008**: Sales MUST react to Payment and Warehouse outcomes (authorized/declined, reserved/rejected) by recording the corresponding evidence and updating Sales Order status, without re-deciding those outcomes. (BC-008)
+- **FR-009**: Confirmation MUST be idempotent: receiving the required evidence more than once, or out of order, MUST NOT produce duplicate confirmation or duplicate commercial commitment.
+- **FR-010**: While required evidence is incomplete, the Sales Order MUST remain unconfirmed and MUST expose which evidence is still outstanding.
+- **FR-011**: When Payment reports a declined authorization, or Warehouse reports that none of the requested beers can be reserved, the Sales Order MUST remain unconfirmed. When one required outcome succeeds and the other is negative or absent, the Sales Order MUST remain unconfirmed with **no Sales-owned compensation**; release, void, and refund remain owned by Warehouse and Payment and are out of scope for this feature. (clarified OQ-1)
+- **FR-012**: Confirmation evidence MUST be associated with the specific Sales Order it pertains to; evidence referencing an unknown Sales Order MUST NOT confirm any order.
+- **FR-013**: Cross-context interaction for this feature MUST occur only through explicit contracts (commands, integration events, facades) — never direct access into another context's internal domain. (Constitution II)
+- **FR-014**: Partial confirmation is permitted. Warehouse owns which requested beers are reservable; a Sales Order MAY become `Confirmed` when payment is authorized and Warehouse produces a Stock Reservation covering a subset of the requested beers. Sales MUST NOT decide the reservable subset, and the handling of any unreserved remainder is not owned by Sales and is out of scope here. (clarified OQ-2; BC-005, BC-006)
+- **FR-015**: Confirmation MUST be triggered by an external coordinator that dispatches a Confirm command to Sales once the confirmation conditions hold. Sales still **owns and performs** the transition to `Confirmed` and enforces the confirmation invariant; the coordinator coordinates only and MUST NOT own the confirmation decision. The specific coordination mechanism (e.g. saga, process manager, application service) is a plan-time choice. (clarified OQ-5, OQ-6; BC-008)
+
+*Requirements deferred to domain-authority resolution are captured in the Open Questions section rather than as silent decisions (BC-011).*
 
 ### Key Entities *(include if feature involves data)*
 
-- **Sales Order** *(Sales-owned aggregate)*: A commercial commitment made by a customer. Holds its commercial status (including the new `Confirmed` outcome), the requested beers and quantities (order rows), and optional external decision references `PaymentAuthorizationId` and `StockReservationId`. These references may be empty during the lifecycle but MUST both be present at the moment of confirmation.
-- **Payment Authorization** *(external decision, owned by Payment)*: An outcome indicating that a specified amount has been authorized for the customer/order. Referenced by Sales via `PaymentAuthorizationId`; never produced or owned by Sales.
-- **Stock Reservation** *(external decision, owned by Warehouse)*: An outcome indicating that the requested physical stock has been reserved for the order. Referenced by Sales via `StockReservationId`; never produced or owned by Sales. It is the durable fact that supports confirmation (availability alone is not durable).
-- **Sales Order Row**: A requested beer and quantity on the Sales Order; the basis for the stock-reservation request.
+- **Sales Order** *(owned by Sales)*: The commercial commitment made by a customer. Holds requested beers (customer demand), commercial status (including `Confirmed`), and the external decision references `PaymentAuthorizationId?` and `StockReservationId?`. Does not embed Payment or Warehouse models.
+- **Payment Authorization** *(owned by Payment; external to Sales)*: The outcome indicating a specified amount has been authorized for the customer. Referenced from Sales only by `PaymentAuthorizationId`.
+- **Stock Reservation** *(owned by Warehouse; external to Sales)*: The durable outcome indicating that the requested beers' physical stock has been reserved. Referenced from Sales only by `StockReservationId`.
+- **External Decision Reference**: A reference stored by Sales as evidence that an external authority made a decision Sales depends on. It is evidence, not a handle to another context's aggregate.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of Sales Orders that reach `Confirmed` have both a recorded payment-authorization reference and a recorded stock-reservation reference (zero confirmations without complete evidence).
-- **SC-002**: 0 occurrences of a Sales Order in `Confirmed` status with a missing required reference across the full test suite (invariant never violated).
-- **SC-003**: For every confirmation, the requested beers are reserved via a Warehouse reservation outcome before confirmation completes, with 0 cases of Sales directly mutating warehouse stock.
-- **SC-004**: Re-processing the same confirmation trigger produces at most one confirmation outcome and at most one stock-reservation request (100% idempotency in the test suite).
-- **SC-005**: When a required precondition is unmet, 100% of affected Sales Orders remain in a valid pre-confirmation status and none are left in an invalid persisted state.
+- **SC-001**: 100% of Sales Orders that reach `Confirmed` have both a payment-authorization reference and a stock-reservation reference recorded at the moment of confirmation (zero confirmations missing required evidence).
+- **SC-002**: 0% of Sales Orders become `Confirmed` when either required evidence is absent or negative, across all happy-path and negative-path acceptance scenarios.
+- **SC-003**: Repeated or out-of-order delivery of confirmation evidence results in exactly one confirmation per Sales Order (no duplicate commitments) in 100% of idempotency tests.
+- **SC-004**: Architecture fitness checks confirm that Sales never performs payment authorization or stock mutation and never references Payment or Warehouse internal domain types — 0 violations.
+- **SC-005**: For any unconfirmed Sales Order, the set of outstanding required evidence can be determined unambiguously at any point in its lifecycle.
 
 ## Assumptions
 
-- The existing Sales Order lifecycle (created → accepted, etc.) and the existing saga/coordination that already gathers customer and availability signals remain in place; this feature adds the `Confirmed` outcome and the stock-reservation evidence on top of it.
-- A Payment authorization outcome is (or will be) made available to Sales through an integration boundary; producing it is owned by the Payment authority and is out of scope here.
-- A Warehouse stock-reservation outcome is (or will be) made available to Sales through an integration boundary; producing it is owned by the Warehouse authority and is out of scope here.
-- "All requested beers are available in the warehouse" is satisfied for confirmation purposes by a durable Warehouse stock-reservation outcome, because availability by itself is not durable.
-- Cross-context communication uses the project's established commands/integration events; no shared database tables or direct calls into another context's internals are introduced.
+- Payment and Warehouse are **separate authorities** for this feature. Whether either is implemented as a BrewUp module in this repository, referenced as an existing module, or treated as external is a **planning** decision deferred to `/speckit.plan` (per repository instructions, if Payment behavior is implemented here it MUST be a full Payment module).
+- Partial confirmation is allowed: a Sales Order may be confirmed for the subset of requested beers Warehouse reserves (clarified OQ-2). Handling of any unreserved remainder is not owned by Sales and is out of scope here.
+- An external coordinator requests the two external decisions **in parallel** and dispatches a Confirm command to Sales once the confirmation conditions hold; it coordinates without owning the confirmation decision (clarified OQ-5, OQ-6). The concrete mechanism is chosen at plan time.
+- "All requested beers are available" is satisfied, for the purposes of a durable commitment, by a **Stock Reservation** outcome rather than a transient availability check (consistent with BC-006/BC-007).
+- A Sales Order has already been placed (created and placed) before this confirmation flow begins; creation/placement is out of scope for this feature.
+- Standard event-driven, message-coupled communication between contexts is reused; no shared database coupling is introduced.
 
-## Open Questions
+## Open Questions *(BC-011 — must be resolved by a domain authority, not silently decided)*
 
-<!-- Domain decisions the domain expert must resolve. The agent MUST NOT silently decide these (BC-011). -->
+These preserve unresolved business policy. They MUST remain explicit until a human domain/architecture authority resolves them (e.g., via `/speckit.clarify`). They MUST NOT be turned into implementation choices by later artifacts.
 
-*Resolved (2026-06-25):*
+**Resolved in the 2026-06-27 clarification session** (see *Clarifications*): OQ-1 (one-sided outcome → remain unconfirmed, no Sales-owned compensation), OQ-2 (partial confirmation allowed), OQ-3 (Sales does not interpret payment timeouts), OQ-5 (parallel requests), OQ-6 (coordinator dispatches a Confirm command).
 
-- **Payment authorized but stock cannot be reserved** → The Sales Order remains in its pre-confirmation status; Payment independently handles any release/void; Sales takes no compensating action (FR-014).
-- **Who coordinates the confirmation flow** → The existing Sales Order saga/process manager in the Sagas context (FR-012).
-- **Releasing/voiding a payment authorization on reservation failure** → Entirely out of Sales scope; owned by Payment (FR-014).
+Still open (lower impact / owned by another authority — deferred):
 
-*Still open:*
-
-- May a Sales Order be partially reserved/confirmed when only some requested beers are reservable?
-- How long can a stock reservation remain active while payment evidence is still pending?
-- What does a payment-provider timeout mean — declined, pending, or unknown? (owned by Payment; Sales must not interpret it without an explicit decision)
-- How long does Sales wait for a `StockReserved` outcome, and what happens on timeout?
-- Who owns customer notification after a partial or full confirmation failure?
-- Does the order of preconditions matter (payment first vs. reservation first), and which outcome must Sales receive before a Sales Order can become `Confirmed`?
-- Do pre-approved payment terms (e.g., for wholesale customers) provide an alternative form of payment evidence, and if so, what evidence does Sales record?
-
-## Out of Scope
-
-- Authorizing, voiding, or refunding payments (owned by Payment).
-- Reserving, releasing, decrementing, or otherwise mutating warehouse stock (owned by Warehouse).
-- Reservation-expiration, retry, cancellation, and customer-notification policies (unless later assigned by an explicit domain decision).
-- Releasing or voiding a payment authorization when stock reservation fails (owned by Payment).
-- Cross-context orchestration of the confirmation flow (owned by the Sales Order saga in the Sagas context; Sales only reacts).
-- Shipment creation and invoice generation.
+- **OQ-4 — Stock reservation lifetime**: How long may a Stock Reservation remain active while payment is still pending, and what happens on expiry? This is a **Warehouse** decision.
+- **OQ-7 — Customer notification & downstream**: Who owns notifying the customer of confirmation/failure, and what (if anything) is triggered downstream (shipment, invoicing)? Shipment and invoicing are explicitly **not** owned by Sales in this feature.

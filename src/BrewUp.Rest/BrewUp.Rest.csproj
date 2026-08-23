@@ -32,6 +32,7 @@
       <ProjectReference Include="..\BrewUp.Infrastructure\BrewUp.Infrastructure.csproj" />
       <ProjectReference Include="..\Dashboards\BrewUp.Dashboards.Facade\BrewUp.Dashboards.Facade.csproj" />
       <ProjectReference Include="..\MasterData\BrewUp.MasterData.Facade\BrewUp.MasterData.Facade.csproj" />
+      <ProjectReference Include="..\Payment\BrewUp.Payment.Facade\BrewUp.Payment.Facade.csproj" />
       <ProjectReference Include="..\Purchases\BrewUp.Purchases.Facade\BrewUp.Purchases.Facade.csproj" />
       <ProjectReference Include="..\Sagas\BrewUp.Sagas.Facade\BrewUp.Sagas.Facade.csproj" />
       <ProjectReference Include="..\Sales\BrewUp.Sales.Facade\BrewUp.Sales.Facade.csproj" />

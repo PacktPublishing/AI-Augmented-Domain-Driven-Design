@@ -1,71 +1,96 @@
-# Quickstart — Validate Sales Order Confirmation
+# Quickstart: Sales Order Confirmation — validation guide
 
-This guide describes runnable validation scenarios that prove the feature works end-to-end. It references [data-model.md](data-model.md) and [contracts/](contracts/) rather than duplicating shapes. Implementation bodies belong in `tasks.md` / the implementation phase.
+This guide validates the feature end-to-end. It references [contracts/](contracts/) and [data-model.md](data-model.md) rather than duplicating implementation detail.
 
 ## Prerequisites
 
-- .NET 10 SDK installed.
-- Solution builds: `dotnet build src/BrewUp.slnx`.
-- Tests run with xUnit; aggregate tests use `Muflone.SpecificationTests` (`CommandSpecification` Given/When/Expect), matching existing specs in `BrewUp.Sales.Tests/Domain`.
+- .NET 10 SDK
+- EventStore (gRPC), MongoDB, and RabbitMQ reachable per `src/BrewUp.Rest/appsettings.json`
+- Solution builds: `dotnet build src/BrewUp.slnx`
 
 ## Build & test commands
 
-```pwsh
-# Build the whole solution
+```powershell
+# Build the whole solution (includes the new Payment module)
 dotnet build src/BrewUp.slnx
 
-# Run Sales context tests (aggregate confirmation specs + architecture fitness)
-dotnet test src/Sales/BrewUp.Sales.Tests/BrewUp.Sales.Tests.csproj
+# Run all tests
+dotnet test src/BrewUp.slnx
 
-# Run Sagas context tests (orchestrator confirmation flow)
+# Run only the new/affected module tests
+dotnet test src/Payment/BrewUp.Payment.Tests/BrewUp.Payment.Tests.csproj
+dotnet test src/Sales/BrewUp.Sales.Tests/BrewUp.Sales.Tests.csproj
+dotnet test src/Warehouse/BrewUp.Warehouse.Tests/BrewUp.Warehouse.Tests.csproj
 dotnet test src/Sagas/BrewUp.Sagas.Tests/BrewUp.Sagas.Tests.csproj
+
+# Run the host
+dotnet run --project src/BrewUp.Rest/BrewUp.Rest.csproj
 ```
 
-## Scenario 1 — Confirm when both evidences present (US1 / FR-002, FR-008)
+## Domain validation scenarios (test-first — write these failing first)
 
-**Goal**: A Sales Order with both references confirms and raises the Sales-owned event.
+These map to the spec's acceptance scenarios and are implemented as `CommandSpecification<T>` specs.
 
-- **Given**: an existing `SalesOrder` (`SalesOrderCreated` applied → status `Accepted`).
-- **When**: `ConfirmSalesOrder` is handled with a `PaymentAuthorizationId` and a `StockReservationId`.
-- **Then (Expect)**: a single `SalesOrderConfirmed` domain event carrying both references; status becomes `Confirmed`.
-- **Test**: `BrewUp.Sales.Tests/Domain/ConfirmSalesOrderSuccessfully.cs` (`CommandSpecification<ConfirmSalesOrder>`).
+### S1 — Confirm with both evidences present (US1 #1) — Sales
 
-## Scenario 2 — Withhold confirmation when evidence is missing (US3 / FR-002, FR-010, INV-1)
+- **Given**: `SalesOrderCreated` (placed order).
+- **When**: `ConfirmSalesOrder` with a `PaymentAuthorizationReference` and a `StockReservationReference`.
+- **Expect**: `SalesOrderConfirmed`; status becomes `Confirmed`; both references stored.
 
-**Goal**: Missing either reference must not produce a confirmation.
+### S2 — No confirmation when payment evidence missing (US1 #2) — Sales
 
-- **Given**: an existing `SalesOrder` in `Accepted`.
-- **When**: `ConfirmSalesOrder` is handled with only one reference (or the aggregate's `Confirm` is called with a missing id).
-- **Then (Expect)**: **no** `SalesOrderConfirmed` event; status unchanged; no invalid state persisted.
-- **Test**: `BrewUp.Sales.Tests/Domain/ConfirmRejectedWhenEvidenceMissing.cs` (assert empty `Expect()` / no confirmed event for each missing-reference case).
+- **Given**: `SalesOrderCreated`.
+- **When**: `ConfirmSalesOrder` with only the stock reference (payment reference empty).
+- **Expect**: no `SalesOrderConfirmed` (invariant BC-010 holds).
 
-## Scenario 3 — Confirmation is idempotent (FR-009 / INV-2 / SC-004)
+### S3 — No confirmation when stock evidence missing (US1 #3) — Sales
 
-**Goal**: Re-confirming an already-confirmed order produces no second event.
+- Symmetric to S2 with payment reference present, stock reference empty → no confirmation.
 
-- **Given**: a `SalesOrder` with `SalesOrderConfirmed` already applied (status `Confirmed`).
-- **When**: `ConfirmSalesOrder` is handled again.
-- **Then (Expect)**: no further `SalesOrderConfirmed`.
-- **Test**: `BrewUp.Sales.Tests/Domain/ConfirmIsIdempotent.cs`.
+### S4 — Idempotent confirmation (US1 #4, FR-009) — Sales
 
-## Scenario 4 — Saga drives confirmation from outcomes (US1+US2 / FR-012, D4)
+- **Given**: `SalesOrderCreated`, `SalesOrderConfirmed`.
+- **When**: `ConfirmSalesOrder` again with the same evidence.
+- **Expect**: no second `SalesOrderConfirmed`.
 
-**Goal**: The saga confirms only after both outcomes, requesting reservation and reacting to evidence.
+### S5 — Partial reservation still confirms (US1 #5, OQ-2) — Warehouse + Sales
 
-- **Given**: a started `SalesOrderSaga`.
-- **When**: `PaymentAuthorized` then `StockReserved` integration events are handled (in either order).
-- **Then**: after the second outcome, the orchestrator sends exactly one `ConfirmSalesOrder` to Sales with both references; with only one outcome present, no `ConfirmSalesOrder` is sent.
-- **And (failure)**: handling `StockReservationFailed` (or `PaymentAuthorizationFailed`) records the failure and sends no `ConfirmSalesOrder`; the Sales Order stays pre-confirmation (Q1/Q3, FR-014).
-- **Test**: `BrewUp.Sagas.Tests/Orchestrators/SalesOrderSagaConfirmationTests.cs`. Use test doubles to emit the outcome integration events (producers are out of scope — D1/D2).
+- **Warehouse**: `Given` availability for a subset; `When` `ReserveStock` for all rows; `Expect` `StockReserved` with the reserved subset and a `StockReservationId`.
+- **Sales**: confirmation proceeds with the resulting `StockReservationReference` (as S1).
 
-## Architecture fitness (Principle IV)
+### S6 — Payment authorized / declined (US2/US3) — Payment
 
-- `dotnet test` must keep `SalesArchitectureTests` and `SagasArchitectureTests` green: the Sales domain must not depend on Warehouse/Payment internals, and no cross-module internal coupling is introduced. New evidence types live in `BrewUp.Shared`/context `SharedKernel`, not as embedded foreign models.
+- `When` `AuthorizePayment` → `Expect` `PaymentAuthorized` (approve path) or `PaymentDeclined` (decline path). Declined ⇒ saga never reaches the gate ⇒ order stays unconfirmed.
 
-## Expected outcomes checklist
+### S7 — Saga gate fires once when both evidences arrive — Sagas
 
-- [ ] Confirm-success raises exactly one `SalesOrderConfirmed` with both references (SC-001).
-- [ ] No path yields a `Confirmed` status with a missing reference (SC-002).
-- [ ] Saga sends `ConfirmSalesOrder` at most once per order (SC-004).
-- [ ] Failure outcomes leave the order pre-confirmation, with no void/refund/release by Sales (SC-005, FR-014).
-- [ ] Architecture fitness tests remain green.
+- **Given** saga started; `When` `MarkPaymentAuthorized` then `MarkStockReserved`; `Expect` exactly one `SagaSalesOrderReadyToConfirm`. Reversed arrival order yields the same single gate event (FR-009 / out-of-order).
+
+### S8 — One-sided outcome stays unconfirmed (FR-011 / OQ-1) — Sagas
+
+- `When` `MarkPaymentAuthorized` but `MarkStockReservationRejected`; `Expect` no gate event; no compensation command dispatched.
+
+## Architecture fitness checks (Constitution IV)
+
+- `Payment` module: `Domain` has no reference to `Infrastructure`, `ReadModel`, `Facade`, or any infra framework.
+- `Sales` does not reference `Payment.Domain` or `Warehouse.Domain`.
+- No module embeds another module's aggregate.
+
+## End-to-end (manual, via host)
+
+1. Place a Sales Order (existing endpoints).
+2. Observe the saga dispatch `AuthorizePayment` and `ReserveStock` in parallel.
+3. On `PaymentAuthorized` + `StockReserved`, observe `SagaSalesOrderReadyToConfirm` → `ConfirmSalesOrder` → Sales Order status `Confirmed` with both references recorded.
+
+## Success signals (maps to spec Success Criteria)
+
+- SC-001/SC-002: every `Confirmed` order has both references; none confirm without both (S1–S5 green).
+- SC-003: idempotency holds (S4, S7 green).
+- SC-004: architecture fitness checks pass (0 violations).
+- SC-005: an unconfirmed order's outstanding evidence is determinable (saga flags / aggregate references).
+
+## Out of scope (do not implement)
+
+- Reservation expiry/lifetime (OQ-4 — Warehouse).
+- Customer notification, shipment, invoicing (OQ-7).
+- Compensation/release/void/refund/retry/cancel on negative outcomes (FR-011 / OQ-1).

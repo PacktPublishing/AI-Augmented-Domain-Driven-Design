@@ -2,154 +2,292 @@
 
 **Input**: Design documents from `specs/001-order-confirmation/`
 
-**Prerequisites**: [plan.md](plan.md) (required), [spec.md](spec.md) (user stories), [research.md](research.md), [data-model.md](data-model.md), [contracts/](contracts/)
+**Prerequisites**: plan.md ✓ · spec.md ✓ · research.md ✓ · data-model.md ✓ · contracts/ ✓
 
-**Tests**: Test tasks are INCLUDED and REQUIRED. The project constitution (Principle III — Test-First Discipline, NON-NEGOTIABLE) mandates a failing test before implementation. Aggregate tests use `Muflone.SpecificationTests` (`CommandSpecification` Given/When/Expect), matching existing specs in `BrewUp.Sales.Tests/Domain`.
+**Tests**: Included — Test-First is NON-NEGOTIABLE (Constitution III). All failing tests MUST be written and observed to fail before implementation that makes them pass.
 
-## Format: `[ID] [P?] [Story] Description`
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing. US1 is the full MVP: once Phase 3 is complete, Sales Order confirmation is independently verifiable.
 
-- **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
-- **[Story]**: US1, US2, US3 (maps to spec.md user stories)
-- File paths are exact and relative to the repository root.
+## Format: `[ID] [P?] [Story?] Description — file path`
 
-## Conventions (from plan.md)
-
-- DDD modular monolith; per-context layers `Domain` → `SharedKernel` → `Infrastructure`/`ReadModel` → `Facade` → `Tests`.
-- Cross-context messages live in `BrewUp.Shared`. Sales stores only external decision references (no embedded Payment/Warehouse models — BC-002/BC-009).
-- Strongly-typed ids derive from `Muflone.Core.DomainId`.
+- **[P]**: Can run in parallel (independent files, no incomplete dependencies)
+- **[US1/2/3]**: User story ownership (Phase 3+)
+- Paths relative to repository root (`src/`, `specs/`)
 
 ---
 
 ## Phase 1: Setup
 
-**Purpose**: Establish a green baseline before changes.
+**Purpose**: Create the Payment module project scaffolding and register it in the solution and REST host. No business logic here.
 
-- [X] T001 Confirm a clean build and green baseline: run `dotnet build src/BrewUp.slnx`, then `dotnet test src/Sales/BrewUp.Sales.Tests/BrewUp.Sales.Tests.csproj` and `dotnet test src/Sagas/BrewUp.Sagas.Tests/BrewUp.Sagas.Tests.csproj`. Record that existing architecture fitness tests pass.
+- [X] T001 Create 6 Payment module .csproj files under `src/Payment/` — `src/Payment/BrewUp.Payment.SharedKernel/BrewUp.Payment.SharedKernel.csproj`, `src/Payment/BrewUp.Payment.Domain/BrewUp.Payment.Domain.csproj`, `src/Payment/BrewUp.Payment.ReadModel/BrewUp.Payment.ReadModel.csproj`, `src/Payment/BrewUp.Payment.Infrastructure/BrewUp.Payment.Infrastructure.csproj`, `src/Payment/BrewUp.Payment.Facade/BrewUp.Payment.Facade.csproj`, `src/Payment/BrewUp.Payment.Tests/BrewUp.Payment.Tests.csproj`
+- [X] T002 Add all 6 Payment module projects to the solution — `src/BrewUp.slnx`
+- [X] T003 [P] Set intra-Payment project references in each .csproj per AR-015: Domain→SharedKernel; ReadModel→SharedKernel; Infrastructure→Domain+SharedKernel; Facade→Domain+ReadModel+Infrastructure+SharedKernel; Tests→all — edit each `src/Payment/BrewUp.Payment.*.csproj`
+- [X] T004 [P] Create PaymentModule IModule registration — `src/BrewUp.Rest/Module/PaymentModule.cs`
+
+**Checkpoint**: Solution builds (`dotnet build src/BrewUp.slnx`) with empty Payment projects. Payment module is wired into the host.
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Shared building blocks used by multiple user stories. **No user story work begins until this phase is complete.**
+**Purpose**: Cross-context shared contracts, domain IDs, and status values that ALL user stories depend on. No story work can begin until this phase is complete.
 
-- [X] T002 [P] Add `Confirmed` value to `SalesOrderStatus` in [src/Sales/BrewUp.Sales.SharedKernel/Enums/SalesOrderStatus.cs](../../src/Sales/BrewUp.Sales.SharedKernel/Enums/SalesOrderStatus.cs) (new id 6; include in `List()`).
-- [X] T003 [P] Create strongly-typed id `PaymentAuthorizationId : DomainId` in [src/BrewUp.Shared/DomainIds/PaymentAuthorizationId.cs](../../src/BrewUp.Shared/DomainIds/PaymentAuthorizationId.cs) (mirror `WarehouseId.cs`).
-- [X] T004 [P] Create strongly-typed id `StockReservationId : DomainId` in [src/BrewUp.Shared/DomainIds/StockReservationId.cs](../../src/BrewUp.Shared/DomainIds/StockReservationId.cs).
-- [X] T005 Create Sales-owned domain event `SalesOrderConfirmed` in [src/Sales/BrewUp.Sales.SharedKernel/Messages/Events/SalesOrderConfirmed.cs](../../src/Sales/BrewUp.Sales.SharedKernel/Messages/Events/SalesOrderConfirmed.cs) carrying `SalesOrderId`, `PaymentAuthorizationId`, `StockReservationId`, `correlationId` (per [contracts/domain-events.md](contracts/domain-events.md)). Depends on T003, T004.
-- [X] T006 Create command `ConfirmSalesOrder` in [src/Sales/BrewUp.Sales.SharedKernel/Messages/Commands/ConfirmSalesOrder.cs](../../src/Sales/BrewUp.Sales.SharedKernel/Messages/Commands/ConfirmSalesOrder.cs) carrying `SalesOrderId`, `PaymentAuthorizationId`, `StockReservationId`, `correlationId` (per [contracts/commands.md](contracts/commands.md)). Depends on T003, T004.
+**⚠️ CRITICAL**: No user story phase can start until this phase is complete.
 
-**Checkpoint**: Status value, id types, confirmation event, and command exist and compile.
+- [X] T005 [P] Add `PaymentAuthorizationReference : DomainId` to Sales SharedKernel — `src/Sales/BrewUp.Sales.SharedKernel/CustomTypes/PaymentAuthorizationReference.cs`
+- [X] T006 [P] Add `StockReservationReference : DomainId` to Sales SharedKernel — `src/Sales/BrewUp.Sales.SharedKernel/CustomTypes/StockReservationReference.cs`
+- [X] T007 [P] Add `StockReservationId : DomainId` to Warehouse SharedKernel — `src/Warehouse/BrewUp.Warehouse.SharedKernel/CustomTypes/StockReservationId.cs`
+- [X] T008 [P] Add `SalesOrderStatus.Confirmed` (id `6`) to the Enumeration and `List()` — `src/Sales/BrewUp.Sales.SharedKernel/Enums/SalesOrderStatus.cs`
+- [X] T009 [P] Add `PaymentAuthorizedIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/PaymentAuthorizedIntegrationEvent.cs`
+- [X] T010 [P] Add `PaymentDeclinedIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/PaymentDeclinedIntegrationEvent.cs`
+- [X] T011 [P] Add `StockReservedIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/StockReservedIntegrationEvent.cs`
+- [X] T012 [P] Add `StockReservationRejectedIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/StockReservationRejectedIntegrationEvent.cs`
+- [X] T013 [P] Add `SagaSalesOrderReadyToConfirmIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/SagaSalesOrderReadyToConfirmIntegrationEvent.cs`
+- [X] T014 [P] Add `SagaRequestsPaymentAuthorizationIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/SagaRequestsPaymentAuthorizationIntegrationEvent.cs`
+- [X] T015 [P] Add `SagaRequestsStockReservationIntegrationEvent` to Shared saga integration events — `src/BrewUp.Shared/Messages/Events/Sagas/SagaRequestsStockReservationIntegrationEvent.cs`
+
+**Checkpoint**: Solution builds with all new types. No business logic yet.
 
 ---
 
-## Phase 3: User Story 1 - Confirm a Sales Order with payment authorized and stock reserved (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — Confirm a Sales Order (Priority: P1) 🎯 MVP
 
-**Goal**: A Sales Order holding both external decision references transitions to `Confirmed`, recording both references and raising `SalesOrderConfirmed`.
+**Goal**: A Sales Order transitions to `Confirmed` when a coordinator dispatches `ConfirmSalesOrder` carrying both a `PaymentAuthorizationReference` and a `StockReservationReference`. Sales owns and enforces the invariant; it never performs payment or stock decisions.
 
-**Independent Test**: Handle `ConfirmSalesOrder` against an `Accepted` Sales Order that has both references → assert one `SalesOrderConfirmed` and status `Confirmed`.
+**Independent Test**: Write and run the CommandSpecs below with Given/When/Expect. No Payment module or Warehouse integration needed — evidence is injected directly into the test.
 
-### Tests for User Story 1 (write first, MUST FAIL before implementation) ⚠️
+### Tests for User Story 1 ⚠️ Write FIRST — must FAIL before implementation
 
-- [X] T007 [P] [US1] Add aggregate spec `ConfirmSalesOrderSuccessfully : CommandSpecification<ConfirmSalesOrder>` in [src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderSuccessfully.cs](../../src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderSuccessfully.cs): Given `SalesOrderCreated`, When `ConfirmSalesOrder` with both refs, Expect `SalesOrderConfirmed`.
-- [X] T008 [P] [US1] Add aggregate spec `ConfirmIsIdempotent` in [src/Sales/BrewUp.Sales.Tests/Domain/ConfirmIsIdempotent.cs](../../src/Sales/BrewUp.Sales.Tests/Domain/ConfirmIsIdempotent.cs): Given `SalesOrderCreated` + `SalesOrderConfirmed`, When `ConfirmSalesOrder` again, Expect no further event (empty `Expect()`).
+- [X] T016 [P] [US1] CommandSpec: `ConfirmSalesOrderSuccessfully` — Given SalesOrderCreated, When ConfirmSalesOrder with both refs, Expect SalesOrderConfirmed — `src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderSuccessfully.cs`
+- [X] T017 [P] [US1] CommandSpec: `ConfirmSalesOrderInvariantMissingPayment` — Given SalesOrderCreated, When ConfirmSalesOrder with empty PaymentAuthorizationReference, Expect no SalesOrderConfirmed — `src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderInvariantMissingPayment.cs`
+- [X] T018 [P] [US1] CommandSpec: `ConfirmSalesOrderInvariantMissingStock` — Given SalesOrderCreated, When ConfirmSalesOrder with empty StockReservationReference, Expect no SalesOrderConfirmed — `src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderInvariantMissingStock.cs`
+- [X] T019 [P] [US1] CommandSpec: `ConfirmSalesOrderIdempotent` — Given SalesOrderCreated + SalesOrderConfirmed, When ConfirmSalesOrder again, Expect no second SalesOrderConfirmed — `src/Sales/BrewUp.Sales.Tests/Domain/ConfirmSalesOrderIdempotent.cs`
+- [X] T020 [P] [US1] Property-based test: `ConfirmationInvariantProperty` — for any SalesOrder in Confirmed state, PaymentAuthorizationReference and StockReservationReference MUST both be present — `src/Sales/BrewUp.Sales.Tests/Domain/ConfirmationInvariantPropertyTests.cs`
+- [X] T021 [P] [US1] Architecture test: assert Sales has no reference to `Payment.Domain` or `Warehouse.Domain` — `src/Sales/BrewUp.Sales.Tests/Architecture/SalesArchitectureTests.cs`
 
 ### Implementation for User Story 1
 
-- [X] T009 [US1] Add `Confirm(PaymentAuthorizationId, StockReservationId, Guid correlationId)` and `Apply(SalesOrderConfirmed)` to [src/Sales/BrewUp.Sales.Domain/Entities/SalesOrder.cs](../../src/Sales/BrewUp.Sales.Domain/Entities/SalesOrder.cs): raise `SalesOrderConfirmed` only when both refs present; no-op when already `Confirmed` (idempotent, INV-2); `Apply` records both refs and sets status `Confirmed`. Depends on T002, T005.
-- [X] T010 [US1] Add `ConfirmSalesOrderCommandHandler : CommandHandlerAsync<ConfirmSalesOrder>` in [src/Sales/BrewUp.Sales.Domain/CommandHandlers/ConfirmSalesOrderCommandHandler.cs](../../src/Sales/BrewUp.Sales.Domain/CommandHandlers/ConfirmSalesOrderCommandHandler.cs): load `SalesOrder`, call `Confirm(...)`, save (mirror `AcceptSalesOrderCommandHandler`). No invariant logic in the handler. Depends on T006, T009.
-- [X] T011 [US1] Register the handler with `services.AddCommandHandler<ConfirmSalesOrderCommandHandler>();` in [src/Sales/BrewUp.Sales.Domain/DomainHelper.cs](../../src/Sales/BrewUp.Sales.Domain/DomainHelper.cs). Depends on T010.
+- [X] T022 [P] [US1] Add `ConfirmSalesOrder` command carrying `PaymentAuthorizationReference` and `StockReservationReference` — `src/Sales/BrewUp.Sales.SharedKernel/Messages/Commands/ConfirmSalesOrder.cs`
+- [X] T023 [P] [US1] Add `SalesOrderConfirmed` domain event carrying both references — `src/Sales/BrewUp.Sales.SharedKernel/Messages/Events/SalesOrderConfirmed.cs`
+- [X] T024 [US1] Add `SalesOrder.ConfirmOrder(PaymentAuthorizationReference, StockReservationReference, Guid correlationId)` and `Apply(SalesOrderConfirmed)` with invariant guard (BC-010) and idempotency (FR-009) — `src/Sales/BrewUp.Sales.Domain/Entities/SalesOrder.cs`
+- [X] T025 [US1] Add `ConfirmSalesOrderCommandHandler` — load aggregate, call `ConfirmOrder`, save — `src/Sales/BrewUp.Sales.Domain/CommandHandlers/ConfirmSalesOrderCommandHandler.cs`
+- [X] T026 [US1] Register `AddCommandHandler<ConfirmSalesOrderCommandHandler>()` in `AddSalesDomain()` — `src/Sales/BrewUp.Sales.Domain/DomainHelper.cs`
+- [X] T027 [P] [US1] Add `SalesOrderConfirmedEventHandler` — MongoDB upsert on Sales Order read model — `src/Sales/BrewUp.Sales.ReadModel/EventHandlers/SalesOrderConfirmedEventHandler.cs`
+- [X] T028 [US1] Add `SagaSalesOrderReadyToConfirmIntegrationEventHandler` (ACL) — dispatches `ConfirmSalesOrder` wrapping the id strings in `PaymentAuthorizationReference`/`StockReservationReference` — `src/Sales/BrewUp.Sales.Facade/Acl/SagaSalesOrderReadyToConfirmIntegrationEventHandler.cs`
+- [X] T029 [US1] Register `AddIntegrationEventHandler<SagaSalesOrderReadyToConfirmIntegrationEventHandler>()` in `AddSalesFacade()` — `src/Sales/BrewUp.Sales.Facade/SalesFacadeHelper.cs`
 
-**Checkpoint**: US1 fully functional and independently testable (T007, T008 now pass).
-
----
-
-## Phase 4: User Story 2 - Reserve stock as part of confirming the order (Priority: P2)
-
-**Goal**: When commercial preconditions are met, the saga requests a stock reservation from Warehouse, records `StockReservationId` evidence on receiving `StockReserved`, and (with payment also authorized) sends exactly one `ConfirmSalesOrder` to Sales.
-
-**Independent Test**: Drive the orchestrator with `PaymentAuthorized` + `StockReserved` (either order) → assert one `ConfirmSalesOrder` sent with both refs; with only one outcome present → none; on a failure outcome → none and Sales Order stays pre-confirmation.
-
-### Cross-context contracts (in BrewUp.Shared / Warehouse SharedKernel)
-
-- [X] T012 [P] [US2] Create integration event `PaymentAuthorized` in [src/BrewUp.Shared/Messages/Events/Sagas/PaymentAuthorized.cs](../../src/BrewUp.Shared/Messages/Events/Sagas/PaymentAuthorized.cs) carrying `IntegrationId`, `correlationId`, `PaymentAuthorizationId` (string) — per [contracts/integration-events.md](contracts/integration-events.md). Mirror `SalesOrderConfirmed` saga event style.
-- [X] T013 [P] [US2] Create integration event `PaymentAuthorizationFailed` in [src/BrewUp.Shared/Messages/Events/Sagas/PaymentAuthorizationFailed.cs](../../src/BrewUp.Shared/Messages/Events/Sagas/PaymentAuthorizationFailed.cs) carrying `IntegrationId`, `correlationId`, `Reason`.
-- [X] T014 [P] [US2] Create integration event `StockReserved` in [src/BrewUp.Shared/Messages/Events/Sagas/StockReserved.cs](../../src/BrewUp.Shared/Messages/Events/Sagas/StockReserved.cs) carrying `IntegrationId`, `correlationId`, `StockReservationId` (string), optional `IEnumerable<ItemRequested> Rows`.
-- [X] T015 [P] [US2] Create integration event `StockReservationFailed` in [src/BrewUp.Shared/Messages/Events/Sagas/StockReservationFailed.cs](../../src/BrewUp.Shared/Messages/Events/Sagas/StockReservationFailed.cs) carrying `IntegrationId`, `correlationId`, optional `Rows`, `Reason`.
-- [X] T016 [P] [US2] Create the Warehouse-owned reservation request contract `ReserveStock` in [src/Warehouse/BrewUp.Warehouse.SharedKernel/Messages/Commands/ReserveStock.cs](../../src/Warehouse/BrewUp.Warehouse.SharedKernel/Messages/Commands/ReserveStock.cs) carrying `WarehouseId`, the Sales Order reference, requested rows, and `correlationId` (contract only — Warehouse-side handler is out of scope per research D2).
-
-### Tests for User Story 2 (write first, MUST FAIL before implementation) ⚠️
-
-- [X] T017 [P] [US2] Add `SalesOrderSagaConfirmationTests` in [src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SalesOrderSagaConfirmationTests.cs](../../src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SalesOrderSagaConfirmationTests.cs) covering: (a) both outcomes → exactly one `ConfirmSalesOrder`; (b) single outcome → no `ConfirmSalesOrder`; (c) `StockReservationFailed`/`PaymentAuthorizationFailed` → no `ConfirmSalesOrder` and no Sales Order transition. Use test doubles to emit outcome integration events. Depends on T012–T015.
-
-### Implementation for User Story 2
-
-- [X] T018 [US2] Extend [src/Sagas/BrewUp.Sagas.Domain/Entities/SalesOrderSaga.cs](../../src/Sagas/BrewUp.Sagas.Domain/Entities/SalesOrderSaga.cs): add `_paymentAuthorizationId`/`_stockReservationId` state and `MarkPaymentAuthorized`, `MarkStockReserved`, `MarkConfirmationFailed` methods with corresponding saga events + `Apply` (mirror existing `Mark*`). Depends on T012–T015.
-- [X] T019 [US2] Extend [src/Sagas/BrewUp.Sagas.Domain/Orchestrators/SalesOrderSagaOrchestrator.cs](../../src/Sagas/BrewUp.Sagas.Domain/Orchestrators/SalesOrderSagaOrchestrator.cs): implement `IIntegrationEventHandlerAsync<PaymentAuthorized>`, `<StockReserved>`, `<PaymentAuthorizationFailed>`, `<StockReservationFailed>`; emit the `ReserveStock` request when preconditions warrant; when both evidences present, send exactly one `ConfirmSalesOrder` (guarded for idempotency, FR-009). Depends on T006, T016, T018.
-- [X] T020 [US2] Register the new orchestrator integration-event subscriptions following the existing `services.AddIntegrationEventHandler<SalesOrderSagaOrchestrator>()` pattern in [src/Sagas/BrewUp.Sagas.Domain/SagasDomainHelper.cs](../../src/Sagas/BrewUp.Sagas.Domain/SagasDomainHelper.cs); verify the RabbitMQ consumer is subscribed to the new event topics. Depends on T019.
-
-**Checkpoint**: US1 + US2 both work independently; saga drives confirmation end-to-end via test doubles.
+**Checkpoint**: US1 is fully functional and independently testable. Run `dotnet test src/Sales/BrewUp.Sales.Tests/BrewUp.Sales.Tests.csproj` — all US1 CommandSpecs and property tests PASS.
 
 ---
 
-## Phase 5: User Story 3 - Withhold confirmation when required evidence is missing (Priority: P3)
+## Phase 4: User Story 2 — Request the External Decisions (Priority: P2)
 
-**Goal**: When either reference is absent, the Sales Order does not become `Confirmed` and no invalid state is persisted.
+**Goal**: Sales emits requests for payment authorization (to Payment) and stock reservation (to Warehouse) in parallel, via the saga coordinator. Each authority produces its outcome independently; Sales never performs either decision.
 
-**Independent Test**: Handle `ConfirmSalesOrder`/call `Confirm` with a missing reference → assert no `SalesOrderConfirmed` and status unchanged.
+**Independent Test**: CommandSpecs for `AuthorizePayment`, `ReserveStock`, and the saga parallel-dispatch and gate logic. Each module is verifiable in isolation.
 
-### Tests for User Story 3 (write first, MUST FAIL before implementation) ⚠️
+### Tests for User Story 2 ⚠️ Write FIRST — must FAIL before implementation
 
-- [X] T021 [P] [US3] Add `ConfirmRejectedWhenEvidenceMissing` in [src/Sales/BrewUp.Sales.Tests/Domain/ConfirmRejectedWhenEvidenceMissing.cs](../../src/Sales/BrewUp.Sales.Tests/Domain/ConfirmRejectedWhenEvidenceMissing.cs) with three cases: missing `PaymentAuthorizationId`; missing `StockReservationId`; missing both — each Expect no `SalesOrderConfirmed`.
+- [X] T030 [P] [US2] CommandSpec: `AuthorizePaymentSuccessfully` — Given empty, When AuthorizePayment (approve path), Expect PaymentAuthorized — `src/Payment/BrewUp.Payment.Tests/Domain/AuthorizePaymentSuccessfully.cs`
+- [X] T031 [P] [US2] CommandSpec: `AuthorizePaymentDeclined` — Given empty, When AuthorizePayment (decline path), Expect PaymentDeclined — `src/Payment/BrewUp.Payment.Tests/Domain/AuthorizePaymentDeclined.cs`
+- [X] T032 [P] [US2] Architecture test: `PaymentArchitectureTests` — Payment.Domain has no ref to Infrastructure/ReadModel/Facade; no Payment.Domain ref from Sales or Sagas — `src/Payment/BrewUp.Payment.Tests/Architecture/PaymentArchitectureTests.cs`
+- [X] T033 [P] [US2] CommandSpec: `ReserveStockSuccessfully` — Given AvailabilityCreated, When ReserveStock for all rows, Expect StockReserved — `src/Warehouse/BrewUp.Warehouse.Tests/Domain/ReserveStockSuccessfully.cs`
+- [X] T034 [P] [US2] CommandSpec: `ReserveStockPartially` — Given AvailabilityCreated with partial stock, When ReserveStock for all rows, Expect StockReserved for the reservable subset — `src/Warehouse/BrewUp.Warehouse.Tests/Domain/ReserveStockPartially.cs`
+- [X] T035 [P] [US2] Architecture test: `WarehouseArchitectureTests` — add assertions for new Warehouse dependencies (no forbidden cross-module refs) — `src/Warehouse/BrewUp.Warehouse.Tests/Architecture/WarehouseArchitectureTests.cs`
+- [X] T036 [P] [US2] CommandSpec: `SagaBothEvidencesReceived_GateFires` — Given saga started, When MarkPaymentAuthorized then MarkStockReserved, Expect exactly one SagaSalesOrderReadyToConfirm — `src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SagaBothEvidencesReceived_GateFires.cs`
+- [X] T037 [P] [US2] CommandSpec: `SagaRequestsBothDecisionsInParallel` — Given saga started + SalesOrderPlaced, When InitiateConfirmationRequests, Expect SagaRequestsPaymentAuthorization and SagaRequestsStockReservation both raised — `src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SagaRequestsBothDecisionsInParallel.cs`
+
+### Implementation — Payment SharedKernel
+
+- [X] T038 [P] [US2] Add `PaymentAuthorizationId : DomainId` — `src/Payment/BrewUp.Payment.SharedKernel/DomainIds/PaymentAuthorizationId.cs`
+- [X] T039 [P] [US2] Add `PaymentAuthorizationStatus` Enumeration (Authorized=1, Declined=2, Pending=3) — `src/Payment/BrewUp.Payment.SharedKernel/Enums/PaymentAuthorizationStatus.cs`
+- [X] T040 [P] [US2] Add `AuthorizePayment` command (carries salesOrderId, amount) — `src/Payment/BrewUp.Payment.SharedKernel/Messages/Commands/AuthorizePayment.cs`
+- [X] T041 [P] [US2] Add `PaymentAuthorized` domain event (carries salesOrderId) — `src/Payment/BrewUp.Payment.SharedKernel/Messages/Events/PaymentAuthorized.cs`
+- [X] T042 [P] [US2] Add `PaymentDeclined` domain event (carries salesOrderId, reason) — `src/Payment/BrewUp.Payment.SharedKernel/Messages/Events/PaymentDeclined.cs`
+
+### Implementation — Payment Domain
+
+- [X] T043 [US2] Add `PaymentAuthorization` aggregate with `Authorize()` and `Apply(PaymentAuthorized)` / `Apply(PaymentDeclined)` — Payment owns the authorization decision — `src/Payment/BrewUp.Payment.Domain/Entities/PaymentAuthorization.cs`
+- [X] T044 [US2] Add `AuthorizePaymentCommandHandler` — load/create PaymentAuthorization, call `Authorize()`, save — `src/Payment/BrewUp.Payment.Domain/CommandHandlers/AuthorizePaymentCommandHandler.cs`
+- [X] T045 [US2] Add `PaymentDomainHelper` with `AddPaymentDomain()` registering `AddCommandHandler<AuthorizePaymentCommandHandler>()` — `src/Payment/BrewUp.Payment.Domain/PaymentDomainHelper.cs`
+
+### Implementation — Payment ReadModel
+
+- [X] T046 [P] [US2] Add `PaymentAuthorizedEventHandler` — publishes `PaymentAuthorizedIntegrationEvent` (correlationId used for saga routing) — `src/Payment/BrewUp.Payment.ReadModel/EventHandlers/PaymentAuthorizedEventHandler.cs`
+- [X] T047 [P] [US2] Add `PaymentDeclinedEventHandler` — publishes `PaymentDeclinedIntegrationEvent` — `src/Payment/BrewUp.Payment.ReadModel/EventHandlers/PaymentDeclinedEventHandler.cs`
+- [X] T048 [US2] Add `PaymentReadModelHelper` with `AddPaymentReadModel()` registering both event handlers — `src/Payment/BrewUp.Payment.ReadModel/PaymentReadModelHelper.cs`
+
+### Implementation — Payment Infrastructure
+
+- [X] T049 [US2] Add `InfrastructureHelper` with `AddPaymentInfrastructure()` — EventStore persister for `PaymentAuthorization`, MongoDB collection wiring — `src/Payment/BrewUp.Payment.Infrastructure/InfrastructureHelper.cs`
+
+### Implementation — Payment Facade
+
+- [X] T050 [P] [US2] Add `IPaymentFacade` interface and `PaymentFacade` implementation — `src/Payment/BrewUp.Payment.Facade/IPaymentFacade.cs` and `src/Payment/BrewUp.Payment.Facade/PaymentFacade.cs`
+- [X] T051 [US2] Add `PaymentFacadeHelper` with `AddPaymentFacade(configuration)` — calls `AddPaymentDomain()`, `AddPaymentReadModel()`, `AddPaymentInfrastructure()` — `src/Payment/BrewUp.Payment.Facade/PaymentFacadeHelper.cs`
+- [X] T052 [P] [US2] Add `PaymentEndpoints` with `MapPaymentEndpoints()` minimal API map — `src/Payment/BrewUp.Payment.Facade/Endpoints/PaymentEndpoints.cs`
+- [X] T053 [US2] Add `SagaRequestsPaymentAuthorizationIntegrationEventHandler` ACL — dispatches `AuthorizePayment` — `src/Payment/BrewUp.Payment.Facade/Acl/SagaRequestsPaymentAuthorizationIntegrationEventHandler.cs`
+- [X] T054 [US2] Register `AddIntegrationEventHandler<SagaRequestsPaymentAuthorizationIntegrationEventHandler>()` in `AddPaymentFacade()` — `src/Payment/BrewUp.Payment.Facade/PaymentFacadeHelper.cs`
+
+### Implementation — Warehouse SharedKernel extension
+
+- [X] T055 [P] [US2] Add `ReserveStock` command (carries warehouseId, correlationId, salesOrderId, rows) — `src/Warehouse/BrewUp.Warehouse.SharedKernel/Messages/Commands/ReserveStock.cs`
+- [X] T056 [P] [US2] Add `StockReserved` domain event (carries StockReservationId, salesOrderId, reservedRows subset) — `src/Warehouse/BrewUp.Warehouse.SharedKernel/Messages/Events/StockReserved.cs`
+- [X] T057 [P] [US2] Add `StockReservationRejected` domain event (carries salesOrderId, reason) — `src/Warehouse/BrewUp.Warehouse.SharedKernel/Messages/Events/StockReservationRejected.cs`
+
+### Implementation — Warehouse Domain extension
+
+- [X] T058 [US2] Add `Availability.ReserveStock()` method producing either `StockReserved` (with the reservable subset, possibly partial per OQ-2) or `StockReservationRejected`; add `Apply(StockReserved)`, `Apply(StockReservationRejected)` — `src/Warehouse/BrewUp.Warehouse.Domain/Entities/Availability.cs`
+- [X] T059 [US2] Add `ReserveStockCommandHandler` — load Availability, call `ReserveStock()`, save — `src/Warehouse/BrewUp.Warehouse.Domain/CommandHandlers/ReserveStockCommandHandler.cs`
+- [X] T060 [US2] Register `AddCommandHandler<ReserveStockCommandHandler>()` in `AddDomain()` — `src/Warehouse/BrewUp.Warehouse.Domain/DomainHelper.cs`
+
+### Implementation — Warehouse ReadModel extension
+
+- [X] T061 [P] [US2] Add `StockReservedEventHandler` — publishes `StockReservedIntegrationEvent` — `src/Warehouse/BrewUp.Warehouse.ReadModel/EventHandlers/StockReservedEventHandler.cs`
+- [X] T062 [P] [US2] Add `StockReservationRejectedEventHandler` — publishes `StockReservationRejectedIntegrationEvent` — `src/Warehouse/BrewUp.Warehouse.ReadModel/EventHandlers/StockReservationRejectedEventHandler.cs`
+- [X] T063 [US2] Register both new event handlers in the Warehouse ReadModel helper — `src/Warehouse/BrewUp.Warehouse.ReadModel/WarehouseReadModelHelper.cs`
+
+### Implementation — Warehouse Facade extension
+
+- [X] T064 [US2] Add `SagaRequestsStockReservationIntegrationEventHandler` ACL — dispatches `ReserveStock` — `src/Warehouse/BrewUp.Warehouse.Facade/Acl/SagaRequestsStockReservationIntegrationEventHandler.cs`
+- [X] T065 [US2] Register `AddIntegrationEventHandler<SagaRequestsStockReservationIntegrationEventHandler>()` in `AddWarehouseFacade()` — `src/Warehouse/BrewUp.Warehouse.Facade/WarehouseFacadeHelper.cs`
+
+### Implementation — Sagas SharedKernel extension
+
+- [X] T066 [P] [US2] Add `SagaSalesOrderReadyToConfirm` domain event (carries salesOrderId, paymentAuthorizationId, stockReservationId) — gate event — `src/Sagas/BrewUp.Sagas.SharedKernel/Messages/Events/SagaSalesOrderReadyToConfirm.cs`
+- [X] T067 [P] [US2] Add `SagaRequestsPaymentAuthorization` domain event (carries salesOrderId, amount, correlationId) — `src/Sagas/BrewUp.Sagas.SharedKernel/Messages/Events/SagaRequestsPaymentAuthorization.cs`
+- [X] T068 [P] [US2] Add `SagaRequestsStockReservation` domain event (carries salesOrderId, warehouseId, rows) — `src/Sagas/BrewUp.Sagas.SharedKernel/Messages/Events/SagaRequestsStockReservation.cs`
+
+### Implementation — Sagas Domain extension
+
+- [X] T069 [US2] Extend `SalesOrderSaga`: add `_paymentAuthorized`, `_stockReserved`, `_paymentAuthorizationId`, `_stockReservationId` fields; add `InitiateConfirmationRequests()` raising `SagaRequestsPaymentAuthorization` and `SagaRequestsStockReservation`; add `MarkPaymentAuthorized(paymentAuthorizationId, correlationId)` with gate check; add `MarkStockReserved(stockReservationId, correlationId)` with gate check; gate raises `SagaSalesOrderReadyToConfirm` exactly once when both flags true — `src/Sagas/BrewUp.Sagas.Domain/Entities/SalesOrderSaga.cs`
+- [X] T070 [US2] Extend `SalesOrderSagaOrchestrator`: implement `IIntegrationEventHandlerAsync<PaymentAuthorizedIntegrationEvent>` and `IIntegrationEventHandlerAsync<StockReservedIntegrationEvent>`; update `HandleAsync(SalesOrderPlaced)` to also call `aggregate.InitiateConfirmationRequests()` after marking the order as placed — `src/Sagas/BrewUp.Sagas.Domain/Orchestrators/SalesOrderSagaOrchestrator.cs`
+
+### Implementation — Sagas ReadModel extension
+
+- [X] T071 [P] [US2] Add `SagaSalesOrderReadyToConfirmEventHandler` — publishes `SagaSalesOrderReadyToConfirmIntegrationEvent` — `src/Sagas/BrewUp.Sagas.ReadModel/EventHandlers/SagaSalesOrderReadyToConfirmEventHandler.cs`
+- [X] T072 [P] [US2] Add `SagaRequestsPaymentAuthorizationEventHandler` — publishes `SagaRequestsPaymentAuthorizationIntegrationEvent` — `src/Sagas/BrewUp.Sagas.ReadModel/EventHandlers/SagaRequestsPaymentAuthorizationEventHandler.cs`
+- [X] T073 [P] [US2] Add `SagaRequestsStockReservationEventHandler` — publishes `SagaRequestsStockReservationIntegrationEvent` — `src/Sagas/BrewUp.Sagas.ReadModel/EventHandlers/SagaRequestsStockReservationEventHandler.cs`
+- [X] T074 [US2] Register all three new ReadModel event handlers via `AddDomainEventHandler<>()` in `SagaReadModelHelper` — `src/Sagas/BrewUp.Sagas.ReadModel/SagaReadModelHelper.cs`
+
+**Checkpoint**: Full pipeline is wired. Run `dotnet test src/Payment/BrewUp.Payment.Tests/BrewUp.Payment.Tests.csproj`, `dotnet test src/Warehouse/BrewUp.Warehouse.Tests/BrewUp.Warehouse.Tests.csproj`, `dotnet test src/Sagas/BrewUp.Sagas.Tests/BrewUp.Sagas.Tests.csproj` — all US2 CommandSpecs PASS.
+
+---
+
+## Phase 5: User Story 3 — Withhold Confirmation on Negative Evidence (Priority: P2)
+
+**Goal**: When Payment declines or Warehouse rejects the reservation, the Sales Order stays unconfirmed. The saga records the negative outcome without dispatching any compensation, release, or cancellation (FR-011 / OQ-1 resolved). The invariant is already enforced by US1; this phase handles the saga's negative-path branches.
+
+**Independent Test**: CommandSpecs that confirm the gate event is never raised on negative paths.
+
+### Tests for User Story 3 ⚠️ Write FIRST — must FAIL before implementation
+
+- [X] T075 [P] [US3] CommandSpec: `SagaPaymentDeclined_NoGate` — Given saga started + SagaRequestsPaymentAuthorization raised, When MarkPaymentDeclined, Expect no SagaSalesOrderReadyToConfirm — `src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SagaPaymentDeclined_NoGate.cs`
+- [X] T076 [P] [US3] CommandSpec: `SagaStockReservationRejected_NoGate` — Given saga started + SagaRequestsStockReservation raised, When MarkStockReservationRejected, Expect no SagaSalesOrderReadyToConfirm — `src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SagaStockReservationRejected_NoGate.cs`
+- [X] T077 [P] [US3] CommandSpec: `SagaOneSidedSuccess_NoGate` — Given saga started, When MarkPaymentAuthorized then MarkStockReservationRejected, Expect no SagaSalesOrderReadyToConfirm (no compensation dispatched) — `src/Sagas/BrewUp.Sagas.Tests/Orchestrators/SagaOneSidedSuccess_NoGate.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] In [src/Sales/BrewUp.Sales.Domain/Entities/SalesOrder.cs](../../src/Sales/BrewUp.Sales.Domain/Entities/SalesOrder.cs), ensure/harden the `Confirm` guard so a missing or empty reference yields no event and no state change (INV-1, FR-010); confirm no invalid `Confirmed` state can be persisted. Depends on T009.
+- [X] T078 [P] [US3] Add `SagaPaymentDeclined` domain event (records the negative outcome, no compensation) — `src/Sagas/BrewUp.Sagas.SharedKernel/Messages/Events/SagaPaymentDeclined.cs`
+- [X] T079 [P] [US3] Add `SagaStockReservationRejected` domain event (records the negative outcome, no compensation) — `src/Sagas/BrewUp.Sagas.SharedKernel/Messages/Events/SagaStockReservationRejected.cs`
+- [X] T080 [US3] Extend `SalesOrderSaga`: add `MarkPaymentDeclined(reason, correlationId)` raising `SagaPaymentDeclined`; add `MarkStockReservationRejected(reason, correlationId)` raising `SagaStockReservationRejected`; no compensation is dispatched (FR-011, OQ-1) — `src/Sagas/BrewUp.Sagas.Domain/Entities/SalesOrderSaga.cs`
+- [X] T081 [US3] Extend `SalesOrderSagaOrchestrator`: implement `IIntegrationEventHandlerAsync<PaymentDeclinedIntegrationEvent>` (calls `MarkPaymentDeclined`) and `IIntegrationEventHandlerAsync<StockReservationRejectedIntegrationEvent>` (calls `MarkStockReservationRejected`) — `src/Sagas/BrewUp.Sagas.Domain/Orchestrators/SalesOrderSagaOrchestrator.cs`
 
-**Checkpoint**: All three user stories independently functional; core invariant (BC-010) protected from every path.
+**Checkpoint**: All negative-path CommandSpecs PASS. The gate is never raised when either outcome is negative.
 
 ---
 
-## Phase 6: Polish & Cross-Cutting Concerns
+## Final Phase: Polish & Cross-Cutting Concerns
 
-- [X] T023 [P] Run architecture fitness tests and confirm green: `SalesArchitectureTests` and `SagasArchitectureTests` (no Sales dependency on Warehouse/Payment internals; no embedded foreign models). Files: [src/Sales/BrewUp.Sales.Tests/Architecture/SalesArchitectureTests.cs](../../src/Sales/BrewUp.Sales.Tests/Architecture/SalesArchitectureTests.cs), [src/Sagas/BrewUp.Sagas.Tests/Architecture/SagasArchitectureTests.cs](../../src/Sagas/BrewUp.Sagas.Tests/Architecture/SagasArchitectureTests.cs).
-- [X] T024 Run full `dotnet test src/BrewUp.slnx` and walk the [quickstart.md](quickstart.md) scenarios 1–4; verify Success Criteria SC-001…SC-005.
-- [X] T025 [P] (Constitution Principle V follow-up) Add a CsCheck property-based test asserting the confirmation invariant (Confirmed ⇒ both references present) and record the Stryker mutation-gate follow-up for `BrewUp.Sales.Domain` noted in plan Complexity Tracking.
+- [X] T082 [P] Verify all 6 Payment module projects are listed correctly in solution — `src/BrewUp.slnx`
+- [X] T083 [P] Run full solution build — `dotnet build src/BrewUp.slnx` — zero errors, zero warnings introduced
+- [X] T084 [P] Run full test suite — `dotnet test src/BrewUp.slnx` — all tests PASS, no regressions in existing modules
+- [X] T085 [P] Verify all architecture fitness functions pass (forbidden references produce zero violations) — `dotnet test src/BrewUp.Shared.Tests/` and each `*/Tests/Architecture/`
+- [X] T086 Validate quickstart end-to-end scenarios S1–S8 from `specs/001-order-confirmation/quickstart.md`
+- [X] T087 [P] Confirm OQ-4 (reservation lifetime) and OQ-7 (notification/downstream) have no implementation — grep for any code related to reservation expiry or customer notification in newly added files
 
 ---
 
 ## Dependencies & Execution Order
 
-### Phase dependencies
+### Phase Dependencies
 
-- **Setup (T001)** → no dependencies.
-- **Foundational (T002–T006)** → after Setup; **blocks all user stories**. T005/T006 depend on T003+T004.
-- **US1 (T007–T011)** → after Foundational. MVP.
-- **US2 (T012–T020)** → after Foundational; contracts T012–T016 are independent of US1; T019 also depends on `ConfirmSalesOrder` (T006).
-- **US3 (T021–T022)** → after Foundational; T022 depends on the `Confirm` method from US1 (T009).
-- **Polish (T023–T025)** → after the targeted user stories are complete.
+- **Phase 1 (Setup)**: No dependencies — start immediately.
+- **Phase 2 (Foundational)**: Depends on Phase 1 completion — BLOCKS all user stories.
+- **Phase 3 (US1)**: Depends on Phase 2 completion — Sales aggregate independently verifiable via CommandSpecs.
+- **Phase 4 (US2)**: Depends on Phase 2 completion — can run in parallel with Phase 3 if staffed.
+- **Phase 5 (US3)**: Depends on Phase 4 (T069–T070 must be complete for the saga negative-path extensions).
+- **Final Phase**: Depends on all story phases complete.
 
-### Story independence
+### User Story Dependencies
 
-- **US1** is self-contained at the aggregate + command-handler level (MVP).
-- **US2** is testable in isolation via the saga orchestrator with test doubles emitting outcome events.
-- **US3** reuses the `SalesOrder.Confirm` method introduced in US1 (earliest story owning the shared behavior) and is independently testable through its rejection specs.
+- **US1 (P1)**: After Phase 2 — no dependency on US2 or US3. CommandSpecs inject evidence directly.
+- **US2 (P2)**: After Phase 2 — no dependency on US1. Can be built in parallel.
+- **US3 (P2)**: After Phase 4 T069–T070 (needs `SalesOrderSaga` negative-path extension points).
 
-### Parallel opportunities
+### Within Each User Story
 
-- Foundational: T002, T003, T004 in parallel; then T005, T006.
-- US1 tests: T007, T008 in parallel (write before T009).
-- US2 contracts: T012, T013, T014, T015, T016 all in parallel; T017 after them.
-- US3 test T021 in parallel with other stories' test authoring.
-- Polish: T023 and T025 in parallel.
+```text
+Tests (failing) → SharedKernel contracts → Domain aggregate → Command handler → Helper registration
+                                         ↘ ReadModel handler
+                                         ↘ Facade ACL handler → FacadeHelper registration
+```
+
+### Parallel Opportunities
+
+- All Phase 1 and Phase 2 tasks marked [P] can run in parallel once T001–T002 are done.
+- All US2 Payment SharedKernel tasks (T038–T042) are fully independent of each other.
+- All Sagas/Warehouse/Payment ReadModel event handlers are independent of each other.
+- US1 and US2 phases can be worked in parallel by separate developers after Phase 2.
+
+---
+
+## Parallel Execution Examples
+
+### US1 Example (single developer)
+
+```text
+T005, T006, T008 [P]  → T022, T023 [P]  → T024  → T025  → T026
+                       → T027 [P]
+                       → T028  → T029
+(Tests T016–T021 [P] written before T022–T029 make them pass)
+```
+
+### US2 Payment parallel stream
+
+```text
+T038–T042 [P] → T043  → T044  → T045
+                              ↘ T046, T047 [P] → T048
+                              ↘ T049
+                              ↘ T050 [P]  → T051  → T052 [P]
+                                          → T053  → T054
+```
+
+### US2 Warehouse parallel stream (independent of Payment stream)
+
+```text
+T055–T057 [P] → T058  → T059  → T060
+                       → T061, T062 [P] → T063
+               T064  → T065
+```
+
+### US2 Sagas stream (after T069 on Saga domain is done)
+
+```text
+T066–T068 [P] → T069 → T070
+               → T071–T073 [P] → T074
+```
 
 ---
 
 ## Implementation Strategy
 
-- **MVP first**: complete Phase 1 → Phase 2 → **Phase 3 (US1)**. This delivers the headline value: a Sales Order confirms when both external decision references are present, with the invariant enforced inside the aggregate.
-- **Incremental delivery**: add **US2** to wire the saga-driven coordination and stock-reservation evidence, then **US3** to lock down the rejection paths. Run Polish to validate fitness functions, quickstart, and success criteria.
-- Keep every step test-first (Principle III): author the failing spec, observe red, implement, observe green.
+**MVP (Phase 3 only)**: Once Phase 1 + Phase 2 + Phase 3 are done, the Sales aggregate correctly enforces the confirmation invariant and the ACL handler wires it to the saga gate event. This is the minimum demonstrable value — the invariant is proven by tests without needing Payment or Warehouse running.
 
-## Suggested MVP scope
+**Full Feature (Phase 3 + 4 + 5)**: Adds the complete event-driven pipeline — Payment module, Warehouse reservation, and saga coordination. End-to-end flow is observable.
 
-**User Story 1 only** (T001–T011): a Sales Order transitions to `Confirmed` when handed both a `PaymentAuthorizationId` and a `StockReservationId`, raising `SalesOrderConfirmed`, with idempotency — fully testable without the saga or external producers.
+**Out of scope (do not implement)**:
+- OQ-4: Stock reservation lifetime / expiry — Warehouse decision, not in this feature.
+- OQ-7: Customer notification, shipment triggers, invoicing — not owned by Sales.
+- Any compensation, void, refund, or retry logic — FR-011 is explicit: no Sales-owned compensation.

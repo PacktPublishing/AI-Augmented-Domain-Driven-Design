@@ -2,7 +2,6 @@
 using BrewUp.Sales.SharedKernel.CustomTypes;
 using BrewUp.Sales.SharedKernel.Enums;
 using BrewUp.Sales.SharedKernel.Messages.Events;
-using BrewUp.Shared.DomainIds;
 using BrewUp.Shared.ExternalContracts.Sales;
 using Muflone.Core;
 using Muflone.CustomTypes;
@@ -19,8 +18,8 @@ public class SalesOrder : AggregateRoot
     
     private SalesOrderStatus _salesOrderStatus;
     
-    private PaymentAuthorizationId? _paymentAuthorizationId;
-    private StockReservationId? _stockReservationId;
+    private PaymentAuthorizationReference? _paymentAuthorizationReference;
+    private StockReservationReference? _stockReservationReference;
     
     protected SalesOrder()
     {}
@@ -129,31 +128,31 @@ public class SalesOrder : AggregateRoot
         _salesOrderStatus = SalesOrderStatus.Accepted;
     }
 
-    private void Apply(SalesOrderClosed @event)
+    internal void ConfirmOrder(PaymentAuthorizationReference paymentAuthorizationReference,
+        StockReservationReference stockReservationReference, Guid correlationId)
     {
-        _salesOrderDeliveryDate = @event.SalesOrderDeliveryDate;
-    }
-
-    internal void Confirm(PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId,
-        Guid correlationId)
-    {
-        // Idempotency guard (INV-2 / FR-009): already confirmed — no-op.
+        // Idempotency guard (FR-009): already confirmed → no-op
         if (Equals(_salesOrderStatus, SalesOrderStatus.Confirmed))
             return;
 
-        // Invariant guard (BC-010 / FR-002 / INV-1): both references must be present.
-        if (string.IsNullOrWhiteSpace(paymentAuthorizationId?.Value) ||
-            string.IsNullOrWhiteSpace(stockReservationId?.Value))
+        // Invariant (BC-010): both external decision references must be present
+        if (string.IsNullOrEmpty(paymentAuthorizationReference?.Value) ||
+            string.IsNullOrEmpty(stockReservationReference?.Value))
             return;
 
-        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), paymentAuthorizationId,
-            stockReservationId, correlationId));
+        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), correlationId,
+            paymentAuthorizationReference, stockReservationReference));
     }
 
     private void Apply(SalesOrderConfirmed @event)
     {
-        _paymentAuthorizationId = @event.PaymentAuthorizationId;
-        _stockReservationId = @event.StockReservationId;
         _salesOrderStatus = SalesOrderStatus.Confirmed;
+        _paymentAuthorizationReference = @event.PaymentAuthorizationReference;
+        _stockReservationReference = @event.StockReservationReference;
+    }
+
+    private void Apply(SalesOrderClosed @event)
+    {
+        _salesOrderDeliveryDate = @event.SalesOrderDeliveryDate;
     }
 }

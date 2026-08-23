@@ -24,6 +24,8 @@ public static class ReadModelHelper
         services.AddScoped<IQueries<Beer>, BeerQueries>();
 
         services.AddDomainEventHandler<ShipmentPendingForPreparationEventHandler>();
+        services.AddDomainEventHandler<StockReservedEventHandler>();
+        services.AddDomainEventHandler<StockReservationRejectedEventHandler>();
         
         return services;
     }

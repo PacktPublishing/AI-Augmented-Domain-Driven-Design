@@ -1,6 +1,5 @@
-using BrewUp.Sales.SharedKernel.Messages.Commands;
 using BrewUp.Sales.SharedKernel.CustomTypes;
-using BrewUp.Shared.DomainIds;
+using BrewUp.Sales.SharedKernel.Messages.Commands;
 using BrewUp.Shared.Messages.Events.Sagas;
 using Microsoft.Extensions.Logging;
 using Muflone.Messages;
@@ -9,7 +8,8 @@ using Muflone.Persistence;
 
 namespace BrewUp.Sales.Facade.Acl;
 
-public sealed class SagaSalesOrderReadyToConfirmIntegrationEventHandler(IServiceBus serviceBus,
+public sealed class SagaSalesOrderReadyToConfirmIntegrationEventHandler(
+    IServiceBus serviceBus,
     ILoggerFactory loggerFactory)
     : IntegrationEventHandlerAsync<SagaSalesOrderReadyToConfirmIntegrationEvent>(loggerFactory)
 {
@@ -18,11 +18,11 @@ public sealed class SagaSalesOrderReadyToConfirmIntegrationEventHandler(IService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        ConfirmSalesOrder command = new(
+        var command = new ConfirmSalesOrder(
             new SalesOrderId(@event.SalesOrderId),
-            new PaymentAuthorizationId(@event.PaymentAuthorizationId),
-            new StockReservationId(@event.StockReservationId),
-            MessageHelpers.GetCorrelationId(@event));
+            MessageHelpers.GetCorrelationId(@event),
+            new PaymentAuthorizationReference(@event.PaymentAuthorizationId),
+            new StockReservationReference(@event.StockReservationId));
 
         await serviceBus.SendAsync(command, cancellationToken).ConfigureAwait(false);
     }

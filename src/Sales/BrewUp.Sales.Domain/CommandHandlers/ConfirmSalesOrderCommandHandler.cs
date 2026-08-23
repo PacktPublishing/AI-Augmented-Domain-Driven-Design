@@ -9,15 +9,12 @@ namespace BrewUp.Sales.Domain.CommandHandlers;
 public sealed class ConfirmSalesOrderCommandHandler(IRepository repository,
     ILoggerFactory loggerFactory) : CommandHandlerAsync<ConfirmSalesOrder>(repository, loggerFactory)
 {
-    public override async Task HandleAsync(ConfirmSalesOrder command,
-        CancellationToken cancellationToken = new())
+    public override async Task HandleAsync(ConfirmSalesOrder command, CancellationToken cancellationToken = new())
     {
-        var aggregate = await Repository
-            .GetByIdAsync<SalesOrder>(command.AggregateId, cancellationToken)
+        var aggregate = await Repository.GetByIdAsync<SalesOrder>(command.AggregateId, cancellationToken)
             .ConfigureAwait(false);
-
-        aggregate!.Confirm(command.PaymentAuthorizationId, command.StockReservationId, command.MessageId);
-
+        aggregate!.ConfirmOrder(command.PaymentAuthorizationReference, command.StockReservationReference,
+            command.MessageId);
         await Repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
     }
 }

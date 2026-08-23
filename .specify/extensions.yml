@@ -1,9 +1,58 @@
 installed:
 - agent-context
+- brewup-sdd
+
 settings:
   auto_execute_hooks: true
+
 hooks:
+  before_specify:
+  # Sales Order Confirmation loader.
+  # Disable this one when specifying a Stock Management feature.
+  - extension: brewup-sdd
+    command: speckit.brewup.load-domain-context
+    enabled: false
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.load-domain-context?
+    description: Load BrewUp Sales Order domain context before specification
+    condition: null
+
+  # Stock Management loader.
+  # Enable this one (and disable the Sales Order loader above) when specifying
+  # a Stock Management feature such as stock reservation.
+  - extension: brewup-sdd
+    command: speckit.brewup.load-stock-context
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.load-stock-context?
+    description: Load BrewUp Stock Management domain context before specification
+    condition: null
+
   after_specify:
+  # Sales Order Confirmation guard.
+  # Disable this one when specifying a Stock Management feature.
+  - extension: brewup-sdd
+    command: speckit.brewup.domain-guard
+    enabled: false
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.domain-guard?
+    description: Validate Sales, Payment, and Warehouse ownership after specification
+    condition: null
+
+  # Stock Management guard.
+  # Pairs with speckit.brewup.load-stock-context in before_specify.
+  - extension: brewup-sdd
+    command: speckit.brewup.stock-guard
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.stock-guard?
+    description: Validate Stock Management ownership and open questions after specification
+    condition: null
+
   - extension: agent-context
     command: speckit.agent-context.update
     enabled: true
@@ -12,7 +61,36 @@ hooks:
     prompt: Execute speckit.agent-context.update?
     description: Refresh agent context after specification
     condition: null
+
+  before_plan:
+  - extension: brewup-sdd
+    command: speckit.brewup.plan-readiness
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.plan-readiness?
+    description: Check whether the Sales Order specification is ready for planning
+    condition: null
+
   after_plan:
+  - extension: brewup-sdd
+    command: speckit.brewup.plan-guard
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.plan-guard?
+    description: Detect bounded-context drift in the generated plan
+    condition: null
+
+  - extension: brewup-sdd
+    command: speckit.brewup.module-structure-guard
+    enabled: true
+    optional: true
+    priority: 6
+    prompt: Execute speckit.brewup.module-structure-guard?
+    description: Validate BrewUp module structure and architecture rules after planning
+    condition: null
+
   - extension: agent-context
     command: speckit.agent-context.update
     enabled: true
@@ -20,4 +98,23 @@ hooks:
     priority: 10
     prompt: Execute speckit.agent-context.update?
     description: Refresh agent context after planning
+    condition: null
+
+  after_tasks:
+  - extension: brewup-sdd
+    command: speckit.brewup.task-guard
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.task-guard?
+    description: Validate generated tasks against Sales Order ownership and unresolved policy rules
+    condition: null
+
+  - extension: brewup-sdd
+    command: speckit.brewup.module-structure-guard
+    enabled: true
+    optional: true
+    priority: 6
+    prompt: Execute speckit.brewup.module-structure-guard?
+    description: Validate BrewUp module structure and architecture rules after task generation
     condition: null

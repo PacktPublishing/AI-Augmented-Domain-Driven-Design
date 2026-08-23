@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Sales Order Confirmation
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-06-25
+**Created**: 2026-06-27
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -29,21 +29,16 @@
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
-## Domain Carrier Alignment (BC-000 → BC-011)
+## Domain Governance (BrewUp carrier)
 
-- [x] Uses "Sales Order" terminology, never generic "Order"
-- [x] Models Sales, Payment, and Warehouse as separate authorities
-- [x] Payment Authorization modeled as an external decision produced by Payment
-- [x] Stock Reservation modeled as an external decision produced by Warehouse
-- [x] `PaymentAuthorizationId` and `StockReservationId` modeled as external decision references
-- [x] Sales does not embed Payment or Warehouse domain models
-- [x] Sales does not authorize payments
-- [x] Sales does not reserve, release, or decrement stock
-- [x] Sales does not own refunds, voids, shipment, or invoicing
-- [x] Confirmation requires both required references (BC-010)
-- [x] Unresolved business decisions preserved as Open Questions / [NEEDS CLARIFICATION]
+- [x] Sales, Payment, and Warehouse modeled as separate authorities (BC-000…BC-008)
+- [x] Payment Authorization and Stock Reservation modeled as external decisions
+- [x] `PaymentAuthorizationId` / `StockReservationId` modeled as external decision references, not embedded models (BC-009)
+- [x] Confirmation invariant requires both references present (BC-010)
+- [x] Sales forbidden responsibilities preserved (no authorize / reserve / release / refund / void / shipment / invoice)
+- [x] Unresolved business policy preserved as Open Questions, not silently decided (BC-011)
 
 ## Notes
 
-- All checklist items pass. The 3 prior [NEEDS CLARIFICATION] markers were resolved on 2026-06-25 (recorded in the spec's Open Questions → Resolved section and FR-012/FR-014).
-- Spec is ready for `/speckit.plan`.
+- Unresolved business policy is intentionally preserved in the **Open Questions** section (OQ-1 … OQ-7) per BC-011, rather than as inline `[NEEDS CLARIFICATION]` markers. These are deferred to a domain authority via `/speckit.clarify` and must not be resolved silently by later artifacts.
+- The spec deliberately does not choose a coordination mechanism (saga / process manager / application service); that is a `/speckit.plan` decision that must coordinate without taking decision authority.

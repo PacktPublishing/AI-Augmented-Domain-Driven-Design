@@ -1,46 +1,56 @@
 # Implementation Plan: Sales Order Confirmation
 
-**Branch**: `001-order-confirmation` | **Date**: 2026-06-25 | **Spec**: [spec.md](spec.md)
+**Branch**: `001-order-confirmation` | **Date**: 2026-06-27 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `specs/001-order-confirmation/spec.md`
 
 ## Summary
 
-Add a `Confirmed` outcome to the Sales-owned **Sales Order** aggregate. A Sales Order may only become `Confirmed` when it holds two external decision references — a **payment authorization** reference (produced by the Payment authority) and a **stock reservation** reference (produced by the Warehouse authority). When the commercial preconditions are met, the existing **Sales Order saga** (Sagas context) coordinates the flow: it requests the stock reservation from Warehouse, collects the payment-authorization and stock-reservation outcomes, and instructs Sales to confirm. Sales never authorizes payment, never reserves/mutates stock, and never embeds Payment or Warehouse models — it only records evidence and reacts. Delivered through Muflone CQRS/ES commands, domain events, and cross-context integration events declared in `BrewUp.Shared`.
+A Sales Order becomes `Confirmed` only when two **external decisions** exist as evidence: a **Payment Authorization** (produced by Payment) and a **Stock Reservation** (produced by Warehouse). Confirmation is coordinated by the existing `SalesOrderSaga`, which requests both decisions **in parallel**, reacts to their outcomes, and — when both are present — dispatches a `ConfirmSalesOrder` command to Sales. Sales owns and performs the transition, storing `PaymentAuthorizationId` and `StockReservationId` as external decision references (never embedding the producing contexts' models). Partial stock reservation is permitted; the reservation may cover a subset of requested beers (Warehouse decides the subset). Sales never authorizes payment, never reserves/releases stock, and never interprets payment-provider timeouts.
+
+Technical approach: extend three existing modules (`Sales`, `Warehouse`, `Sagas`) and create one new module (`Payment`) following the standard BrewUp module structure, using Muflone CQRS/Event Sourcing with EventStore (write), MongoDB (read), and RabbitMQ (transport). Cross-context coupling flows only through commands, domain events, integration events, and ACL handlers.
 
 ## Technical Context
 
 **Language/Version**: C# / .NET 10
 
-**Primary Dependencies**: Muflone (CQRS + event sourcing — `AggregateRoot`, command/event handlers, `Muflone.SpecificationTests`), Muflone.Saga (`ISagaStartedByAsync`, `IIntegrationEventHandlerAsync`), Lena.Core (`Result<T>`), RabbitMQ (service/event bus), EventStore (write model), MongoDB (read model)
+**Primary Dependencies**: Muflone (`AggregateRoot`, `CommandHandlerAsync<T>`, `DomainEvent`, `IntegrationEvent`, `ISagaStartedByAsync`, `IIntegrationEventHandlerAsync<T>`), `Muflone.Transport.RabbitMQ`, `Muflone.Eventstore.gRPC`, `MongoDB.Driver`
 
-**Storage**: EventStore (aggregate event streams) for the write model; MongoDB for denormalized read models. No new stores introduced.
+**Storage**: EventStore (gRPC) for the write model; MongoDB for read models
 
-**Testing**: xUnit; Muflone.SpecificationTests (`CommandSpecification` Given/When/Expect aggregate tests); NetArchTest (architecture fitness functions). Property-based and mutation tooling are **not currently wired** in the repo (see Constitution Check).
+**Testing**: xUnit + Muflone test helpers (`CommandSpecification<T>` Given/When/Expect); NetArchTest for architecture fitness functions; property-based tests for the confirmation invariant; mutation testing wired in CI per Constitution V
 
-**Target Platform**: Linux/Windows server (modular monolith hosted by `BrewUp.Rest`)
+**Target Platform**: ASP.NET Core host (`BrewUp.Rest`) — modular monolith
 
-**Project Type**: DDD modular monolith organized by bounded context, with CQRS and message/event-driven flows
+**Project Type**: DDD Modular Monolith (CQRS + Event Sourcing)
 
-**Performance Goals**: Not performance-sensitive; correctness/invariant-driven. Confirmation is an event-driven transition, not a hot path.
+**Performance Goals**: Not performance-critical; correctness of the confirmation invariant is the priority. Confirmation must be idempotent under repeated/out-of-order evidence.
 
-**Constraints**: Domain layer MUST stay pure (no infrastructure deps); cross-context coupling only through `BrewUp.Shared` contracts; no shared tables or direct calls into other contexts' internals; strongly-typed identifiers (no naked primitives crossing boundaries).
+**Constraints**: Domain layer pure (no infrastructure references); `Guid.CreateVersion7()` everywhere; `ConfigureAwait(false)` on every non-test await; strongly-typed IDs derive from `Muflone.Core.DomainId`; status/type values use the `Enumeration` smart-enum.
 
-**Scale/Scope**: One new aggregate behavior (`Confirm`), one new status, two new value objects, a small set of commands/events/integration events, and saga wiring. No UI work in scope.
+**Scale/Scope**: 1 new module (Payment) + 3 extended modules (Sales, Warehouse, Sagas) + Shared integration events + 1 REST module registration. No UI work in scope.
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design.*
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle | Assessment | Status |
-|-----------|-----------|--------|
-| I. Domain-Driven Design | Confirmation invariant (both references present) enforced **inside** the `SalesOrder` aggregate; state change expressed as the `SalesOrderConfirmed` domain event; evidence modeled as immutable, value-compared, strongly-typed value objects (`PaymentAuthorizationId`, `StockReservationId`); domain layer stays pure. | PASS |
-| II. Modular Architecture & Bounded Contexts | Sales depends on Payment/Warehouse **decisions** only via integration-event contracts in `BrewUp.Shared`; Sales does not reference Payment/Warehouse internals; no embedded foreign models (BC-002/BC-009). | PASS |
-| III. Test-First Discipline | Plan mandates failing aggregate specs (`CommandSpecification`) for confirm-success, missing-evidence rejection, and idempotency **before** implementation; saga reaction tests before wiring. | PASS (enforced in tasks) |
-| IV. Architecture Fitness Functions | Existing NetArchTest suites (`SalesArchitectureTests`, `SagasArchitectureTests`) already assert domain purity and forbid cross-module internal deps; new code must keep them green; no suppressions added. | PASS |
-| V. Property-Based & Mutation Testing | Constitution requires property-based + mutation testing for new domain invariants. **No tooling (CsCheck/FsCheck/Stryker) currently exists in the repo.** Recorded as a documented deviation with a follow-up; the confirmation invariant is otherwise covered by deterministic example-based aggregate specs. | DEVIATION (documented) |
+| Principle | Gate | Status |
+|---|---|---|
+| I. Domain-Driven Design (NON-NEGOTIABLE) | Invariant (Confirmed requires both references) enforced **inside** the `SalesOrder` aggregate; domain layer pure; strongly-typed IDs; state changes via domain events; ubiquitous language ("Sales Order", "Payment Authorization", "Stock Reservation") | PASS |
+| II. Modular Architecture, Bounded Contexts & Module Structure | Payment introduced as a **separate authority** → created as a full module `src/Payment/` with the standard 6 projects (AR-001, AR-002); Warehouse/Sales/Sagas extended in place; cross-context only via contracts; explicit `IModule` registration (AR-013) | PASS |
+| III. Test-First Discipline (NON-NEGOTIABLE) | Each behavioral change starts with a failing `CommandSpecification<T>`; tasks order tests before implementation | PASS |
+| IV. Architecture Fitness Functions | Each module's `Tests/Architecture` enforces dependency direction (AR-015): no `Domain → Infrastructure/ReadModel/Facade`, no `ModuleA → ModuleB.Domain/Infrastructure` | PASS |
+| V. Property-Based & Mutation Testing | Confirmation invariant expressed as a property (Confirmed ⇒ both references present); mutation testing run over Sales/Payment domain | PASS |
+| VI. Spec-Driven Development & Agent Governance | BC-000…BC-011 and AR-000…AR-018 preserved; open questions OQ-4/OQ-7 remain unresolved (not turned into implementation); no invented compensation/retry/notification policy | PASS |
 
-**Domain Carrier gates (BC-000 → BC-011)**: All preserved — see [research.md](research.md) §"Domain Carrier Compliance". No violations.
+**Result**: No violations. Complexity Tracking section intentionally empty.
+
+### Bounded-context ownership decisions (authoritative for tasks)
+
+- **Payment is in scope and implemented as a full module** (`src/Payment/`). Rationale: the feature requires payment-authorization *behavior and outcomes* (a command to authorize and `PaymentAuthorized`/`PaymentDeclined` outcomes) for confirmation to be demonstrable end-to-end. Per the architecture memory "When Payment must be created" criteria (separate authority ✓, behavior required ✓, not declared external ✓), a full Payment module is mandatory (AR-001, AR-002, AR-016).
+- **Warehouse owns Stock Reservation** and is extended with a `ReserveStock` command and `StockReserved` / `StockReservationRejected` outcomes (BC-005, BC-006, BC-007). Sales never reserves/releases stock.
+- **Sales owns the Sales Order lifecycle** and the `Confirmed` transition; it stores `PaymentAuthorizationId` and `StockReservationId` as external decision references only (BC-001, BC-002, BC-009).
+- **The existing `SalesOrderSaga` is the coordinator** (extended, not duplicated). It requests both decisions in parallel, collects evidence, and raises a gate event when both are present; it does **not** own Payment or Warehouse decisions (BC-010, AR-018). Choosing the saga as the coordination mechanism is a technical choice that does not move decision authority.
 
 ## Project Structure
 
@@ -52,65 +62,121 @@ specs/001-order-confirmation/
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output (message contracts)
-│   ├── commands.md
-│   ├── domain-events.md
-│   └── integration-events.md
+├── contracts/           # Phase 1 output (command & event contracts)
+│   ├── payment.md
+│   ├── warehouse-reservation.md
+│   ├── sales-confirmation.md
+│   └── saga-coordination.md
 ├── checklists/
 │   └── requirements.md  # Spec quality checklist (already present)
-└── tasks.md             # Created by /speckit.tasks (NOT this command)
+└── tasks.md             # Created by /speckit.tasks (NOT by /speckit.plan)
 ```
 
 ### Source Code (repository root)
 
-Changes are confined to the **Sales** and **Sagas** bounded contexts plus shared contracts in `BrewUp.Shared`. Warehouse and Payment are decision producers reached only through `BrewUp.Shared` contracts; producing those outcomes is out of scope for this feature (see research.md D1/D2).
+New module — **Payment** (full standard structure, AR-002):
 
 ```text
-src/
-├── BrewUp.Shared/
+src/Payment/
+├── BrewUp.Payment.SharedKernel/
 │   ├── DomainIds/
-│   │   ├── PaymentAuthorizationId.cs          # NEW — external decision reference
-│   │   └── StockReservationId.cs              # NEW — external decision reference
-│   └── Messages/Events/Sagas/
-│       ├── PaymentAuthorized.cs               # NEW — Payment outcome (integration event)
-│       ├── PaymentAuthorizationFailed.cs      # NEW — Payment outcome (integration event)
-│       ├── StockReserved.cs                   # NEW — Warehouse outcome (integration event)
-│       └── StockReservationFailed.cs          # NEW — Warehouse outcome (integration event)
-│
-├── Sales/
-│   ├── BrewUp.Sales.SharedKernel/
-│   │   ├── Enums/SalesOrderStatus.cs          # EDIT — add Confirmed
-│   │   ├── CustomTypes/PaymentAuthorizationId.cs  # NEW — Sales-local VO wrapper
-│   │   ├── CustomTypes/StockReservationId.cs      # NEW — Sales-local VO wrapper
-│   │   ├── Messages/Commands/ConfirmSalesOrder.cs # NEW
-│   │   └── Messages/Events/SalesOrderConfirmed.cs # NEW — Sales-owned domain event
-│   ├── BrewUp.Sales.Domain/
-│   │   ├── Entities/SalesOrder.cs             # EDIT — Confirm(); invariant; Apply(SalesOrderConfirmed)
-│   │   └── CommandHandlers/ConfirmSalesOrderCommandHandler.cs # NEW
-│   └── BrewUp.Sales.Tests/Domain/
-│       ├── ConfirmSalesOrderSuccessfully.cs       # NEW
-│       ├── ConfirmRejectedWhenEvidenceMissing.cs  # NEW
-│       └── ConfirmIsIdempotent.cs                 # NEW
-│
-└── Sagas/
-    ├── BrewUp.Sagas.Domain/
-    │   ├── Entities/SalesOrderSaga.cs         # EDIT — track payment + reservation evidence; emit ConfirmSalesOrder
-    │   └── Orchestrators/SalesOrderSagaOrchestrator.cs # EDIT — handle PaymentAuthorized + StockReserved
-    └── BrewUp.Sagas.Tests/Orchestrators/
-        └── SalesOrderSagaConfirmationTests.cs # NEW
+│   │   └── PaymentAuthorizationId.cs           # : DomainId
+│   ├── Enums/
+│   │   └── PaymentAuthorizationStatus.cs        # : Enumeration (Authorized, Declined, Pending)
+│   └── Messages/
+│       ├── Commands/
+│       │   └── AuthorizePayment.cs              # : Command
+│       └── Events/
+│           ├── PaymentAuthorized.cs             # : DomainEvent
+│           └── PaymentDeclined.cs               # : DomainEvent
+├── BrewUp.Payment.Domain/
+│   ├── Entities/
+│   │   └── PaymentAuthorization.cs              # AggregateRoot — authorize() decision
+│   ├── CommandHandlers/
+│   │   └── AuthorizePaymentCommandHandler.cs
+│   └── PaymentDomainHelper.cs
+├── BrewUp.Payment.ReadModel/
+│   ├── EventHandlers/
+│   │   ├── PaymentAuthorizedEventHandler.cs     # publishes PaymentAuthorizedIntegrationEvent
+│   │   └── PaymentDeclinedEventHandler.cs
+│   ├── Queries/
+│   ├── Dtos/
+│   └── PaymentReadModelHelper.cs
+├── BrewUp.Payment.Infrastructure/
+│   └── InfrastructureHelper.cs
+├── BrewUp.Payment.Facade/
+│   ├── Acl/                                      # ACL handler dispatches AuthorizePayment on saga request
+│   ├── Endpoints/
+│   │   └── PaymentEndpoints.cs
+│   ├── IPaymentFacade.cs
+│   ├── PaymentFacade.cs
+│   └── PaymentFacadeHelper.cs                    # AddPaymentFacade(configuration)
+└── BrewUp.Payment.Tests/
+    ├── Architecture/
+    └── Domain/
 ```
 
-**Structure Decision**: Follow the established per-context layered layout (`Domain` → `SharedKernel` → `Infrastructure`/`ReadModel` → `Facade` → `Tests`). The confirmation invariant lives in `BrewUp.Sales.Domain` (`SalesOrder`); orchestration lives in `BrewUp.Sagas.Domain` (`SalesOrderSaga` + orchestrator); all cross-context messages live in `BrewUp.Shared`. Warehouse-side production of the reservation outcome and any Payment-side production are out of scope and are reached only through the shared contracts.
+Extended existing modules (new files only listed):
+
+```text
+src/Sales/
+├── BrewUp.Sales.SharedKernel/
+│   ├── CustomTypes/
+│   │   ├── PaymentAuthorizationReference.cs     # external decision reference stored by Sales
+│   │   └── StockReservationReference.cs         # external decision reference stored by Sales
+│   ├── Enums/SalesOrderStatus.cs                # ADD `Confirmed`
+│   └── Messages/
+│       ├── Commands/ConfirmSalesOrder.cs        # carries paymentAuthorizationId + stockReservationId
+│       └── Events/SalesOrderConfirmed.cs        # DomainEvent (Sales-owned)
+├── BrewUp.Sales.Domain/
+│   ├── Entities/SalesOrder.cs                   # ADD ConfirmOrder(...) + invariant + Apply
+│   ├── CommandHandlers/ConfirmSalesOrderCommandHandler.cs
+│   └── DomainHelper.cs                           # register handler
+├── BrewUp.Sales.ReadModel/EventHandlers/SalesOrderConfirmedEventHandler.cs
+└── BrewUp.Sales.Facade/Acl/SagaSalesOrderReadyToConfirmIntegrationEventHandler.cs
+
+src/Warehouse/
+├── BrewUp.Warehouse.SharedKernel/
+│   ├── CustomTypes/StockReservationId.cs        # : DomainId (Warehouse owns reservation identity)
+│   └── Messages/
+│       ├── Commands/ReserveStock.cs
+│       └── Events/StockReserved.cs, StockReservationRejected.cs
+├── BrewUp.Warehouse.Domain/
+│   ├── Entities/Availability.cs                 # ADD ReserveStock(...) producing (partial) reservation
+│   └── CommandHandlers/ReserveStockCommandHandler.cs
+└── BrewUp.Warehouse.ReadModel/EventHandlers/StockReservedEventHandler.cs (+ rejected)
+
+src/Sagas/
+├── BrewUp.Sagas.Domain/
+│   ├── Entities/SalesOrderSaga.cs               # ADD MarkPaymentAuthorized/MarkStockReserved + ReadyToConfirm gate
+│   └── Orchestrators/SalesOrderSagaOrchestrator.cs  # ADD handlers for the 4 new integration events + request dispatch
+├── BrewUp.Sagas.SharedKernel/Messages/Events/SagaSalesOrderReadyToConfirm.cs   # gate domain event
+└── BrewUp.Sagas.ReadModel/EventHandlers/SagaSalesOrderReadyToConfirmEventHandler.cs  # publishes integration event
+
+src/BrewUp.Shared/Messages/Events/Sagas/         # saga-facing integration events (…IntegrationEvent suffix convention)
+├── PaymentAuthorizedIntegrationEvent.cs
+├── PaymentDeclinedIntegrationEvent.cs
+├── StockReservedIntegrationEvent.cs
+├── StockReservationRejectedIntegrationEvent.cs
+└── SagaSalesOrderReadyToConfirmIntegrationEvent.cs
+
+src/BrewUp.Rest/Module/PaymentModule.cs           # IModule registration (AR-013)
+```
+
+**Structure Decision**: Modular monolith. One new module (`Payment`) created with the full standard 6-project structure under `src/Payment/`; `Warehouse`, `Sales`, and `Sagas` extended in place; saga-facing integration events placed in `BrewUp.Shared` following the existing `…IntegrationEvent` convention. All new projects are added to `src/BrewUp.slnx` and Payment is registered via `PaymentModule.cs`.
+
+### Dependency direction (AR-015 — enforced by fitness tests)
+
+```text
+Payment.Facade   → Payment.Domain, Payment.ReadModel, Payment.Infrastructure, Payment.SharedKernel, BrewUp.Shared
+Payment.Domain   → Payment.SharedKernel, BrewUp.Shared
+Sales (stores refs) uses its OWN PaymentAuthorizationReference / StockReservationReference value objects;
+  cross-context evidence (raw id strings) arrives via Shared integration events — Sales does NOT reference Payment.Domain / Warehouse.Domain.
+Sagas.Domain     → Sagas.SharedKernel, BrewUp.Shared (consumes integration events; dispatches commands via published SharedKernel contracts)
+```
+
+Forbidden (verified by architecture tests): `Sales → Payment.Domain`, `Sales → Warehouse.Domain`, any `Domain → Infrastructure/ReadModel/Facade`, any module embedding another's aggregate.
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| Property-based + mutation testing not provided for the new invariant (Principle V) | No CsCheck/FsCheck/Stryker tooling exists in the repo today; wiring a mutation pipeline is a cross-cutting infrastructure change beyond this feature's scope | Adding and configuring property-based + mutation tooling now would expand scope well past "order confirmation" and touch CI for all contexts; the invariant is covered by deterministic example-based aggregate specs in the interim. Follow-up: introduce CsCheck for the confirmation invariant and a Stryker mutation gate for `BrewUp.Sales.Domain`. |
-| New cross-context outcome contracts (`PaymentAuthorized`, `StockReserved`, …) introduced while their producers are out of scope | The spec/domain carrier require Payment and Warehouse to be the authorities; Sales must react to their decisions through a boundary, so the contracts must exist even though producers are external/follow-up | Letting Sales derive payment/stock conclusions itself would violate BC-003/BC-005/BC-007 (Sales authorizing payment or owning stock truth). Defining decision-reference contracts is the least-coupling way to honor the bounded-context split. |
-
-## Phase 0 / Phase 1 Outputs
-
-- Phase 0 → [research.md](research.md)
-- Phase 1 → [data-model.md](data-model.md), [contracts/](contracts/), [quickstart.md](quickstart.md)
-- Agent context updated: plan reference set in `.github/copilot-instructions.md`.
+> No Constitution Check violations. No entries required.

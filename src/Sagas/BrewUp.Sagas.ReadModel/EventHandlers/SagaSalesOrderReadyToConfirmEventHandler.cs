@@ -1,4 +1,5 @@
 using BrewUp.Sagas.SharedKernel.Messages.Events;
+using BrewUp.Shared.CustomTypes;
 using BrewUp.Shared.DomainIds;
 using BrewUp.Shared.Messages.Events.Sagas;
 using Microsoft.Extensions.Logging;
@@ -10,19 +11,16 @@ namespace BrewUp.Sagas.ReadModel.EventHandlers;
 
 public sealed class SagaSalesOrderReadyToConfirmEventHandler(
     IEventBus eventBus,
-    ILoggerFactory loggerFactory)
-    : DomainEventHandlerAsync<SagaSalesOrderReadyToConfirm>(loggerFactory)
+    ILoggerFactory loggerFactory) : DomainEventHandlerAsync<SagaSalesOrderReadyToConfirm>(loggerFactory)
 {
     public override async Task HandleAsync(SagaSalesOrderReadyToConfirm @event,
         CancellationToken cancellationToken = new())
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var correlationId = MessageHelpers.GetCorrelationId(@event);
-
-        SagaSalesOrderReadyToConfirmIntegrationEvent integrationEvent = new(
+        var integrationEvent = new SagaSalesOrderReadyToConfirmIntegrationEvent(
             new IntegrationId(@event.AggregateId.Value),
-            correlationId,
+            MessageHelpers.GetCorrelationId(@event),
             @event.SalesOrderId,
             @event.PaymentAuthorizationId,
             @event.StockReservationId);

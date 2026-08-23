@@ -1,94 +1,96 @@
 # Phase 1 Data Model: Sales Order Confirmation
 
-Models are expressed in domain terms aligned with the existing Muflone CQRS/ES codebase. Field types reference existing shared types (`Quantity`, `Price`, `SalesOrderRowJson`, `ItemRequested`, `DomainId`).
+Entities are grouped by owning bounded context. Strongly-typed IDs derive from `Muflone.Core.DomainId`; status values use the `Enumeration` smart-enum. Aggregates enforce invariants; no aggregate may exist in an invalid state (Constitution I).
 
-## Aggregate: Sales Order *(Sales-owned — `BrewUp.Sales.Domain.Entities.SalesOrder`)*
+## Sales context
 
-Existing aggregate, extended with confirmation evidence and a new status.
-
-### New / changed state
+### SalesOrder *(aggregate root — existing, extended)*
 
 | Field | Type | Notes |
-|-------|------|-------|
-| `_salesOrderStatus` | `SalesOrderStatus` | **Add `Confirmed` value** to the enum. |
-| `_paymentAuthorizationId` | `PaymentAuthorizationId?` | External decision reference (evidence). Empty until recorded. |
-| `_stockReservationId` | `StockReservationId?` | External decision reference (evidence). Empty until recorded. |
+|---|---|---|
+| Id | `SalesOrderId` | existing |
+| _salesOrderStatus | `SalesOrderStatus` | **add** `Confirmed` value |
+| _paymentAuthorizationReference | `PaymentAuthorizationReference?` | **new** — external decision reference (evidence) |
+| _stockReservationReference | `StockReservationReference?` | **new** — external decision reference (evidence) |
 
-### New behavior
+**New value objects** (`BrewUp.Sales.SharedKernel/CustomTypes`):
 
-- `internal void Confirm(PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId, Guid correlationId)`
-  - **Precondition (BC-010 / FR-002)**: both references MUST be present (non-null, non-empty). If either is missing → do **not** raise `SalesOrderConfirmed` (invalid state never produced).
-  - **Idempotency (FR-009 / D5)**: if `_salesOrderStatus == Confirmed`, no-op (no second event).
-  - **Effect**: raises `SalesOrderConfirmed(salesOrderId, paymentAuthorizationId, stockReservationId, correlationId)`.
-- `private void Apply(SalesOrderConfirmed @event)`
-  - Sets `_paymentAuthorizationId`, `_stockReservationId`; sets `_salesOrderStatus = SalesOrderStatus.Confirmed`.
+- `PaymentAuthorizationReference : DomainId` — evidence that Payment authorized the customer payment.
+- `StockReservationReference : DomainId` — evidence that Warehouse reserved the requested beers (possibly a subset).
 
-### Invariants
+**New behavior** `SalesOrder.ConfirmOrder(PaymentAuthorizationReference paymentRef, StockReservationReference stockRef, Guid correlationId)`:
 
-- **INV-1**: `Status == Confirmed ⇒ _paymentAuthorizationId` present AND `_stockReservationId` present. (BC-010, SC-002)
-- **INV-2**: Confirmation is idempotent — at most one `SalesOrderConfirmed` per aggregate. (FR-009, SC-004)
-- **INV-3**: The aggregate stores only id references; it never holds Payment or Warehouse models. (BC-002/BC-009, FR-003)
+- **Invariant (BC-010)**: both references MUST be non-null/non-empty; otherwise the order is not confirmed (raise no `SalesOrderConfirmed`, optionally raise an error event — no compensation invented, FR-011).
+- **Idempotency (FR-009)**: if status is already `Confirmed`, no event is raised.
+- On success: `RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), correlationId, paymentRef, stockRef))`.
+- `Apply(SalesOrderConfirmed)`: sets `_salesOrderStatus = SalesOrderStatus.Confirmed`, stores both references.
 
-### State transitions
+**State transition**: `Accepted/WorkInProgress → Confirmed` (only when both references present).
+
+### SalesOrderStatus *(enumeration — extended)*
+
+Add: `Confirmed = new(6, "confirmed")`; include in `List()`.
+
+## Payment context *(new module)*
+
+### PaymentAuthorization *(aggregate root — new)*
+
+| Field | Type | Notes |
+|---|---|---|
+| Id | `PaymentAuthorizationId` | strongly-typed |
+| _status | `PaymentAuthorizationStatus` | Authorized / Declined / Pending |
+| _salesOrderId | `string` | correlation back to the originating Sales Order |
+| _amount | `Price` (Shared) | authorized amount |
+
+**Behavior** `PaymentAuthorization.Authorize(...)`: produces the authorization **decision** (Payment owns it). On approve → `RaiseEvent(PaymentAuthorized)`; on decline → `RaiseEvent(PaymentDeclined)`. Payment owns timeout interpretation (not implemented here beyond definitive outcomes; OQ-3).
+
+### PaymentAuthorizationStatus *(enumeration — new)*
+
+`Authorized(1)`, `Declined(2)`, `Pending(3)`.
+
+### PaymentAuthorizationId *(DomainId — new)*
+
+`public sealed class PaymentAuthorizationId(string value) : DomainId(value);`
+
+## Warehouse context *(existing, extended)*
+
+### Availability *(aggregate root — existing, extended)*
+
+**New behavior** `Availability.ReserveStock(...)`: attempts to reserve the requested beers; Warehouse decides the reservable subset (partial allowed, OQ-2). On success → `RaiseEvent(StockReserved(stockReservationId, reservedRows, ...))`; on failure (nothing reservable) → `RaiseEvent(StockReservationRejected(reason, ...))`. Sales never calls this.
+
+### StockReservationId *(DomainId — new)*
+
+`public sealed class StockReservationId(string value) : DomainId(value);` (owned by Warehouse).
+
+## Sagas context *(existing, extended)*
+
+### SalesOrderSaga *(aggregate root — existing, extended)*
+
+| Field | Type | Notes |
+|---|---|---|
+| _paymentAuthorizationId | `string` | evidence collected from Payment |
+| _stockReservationId | `string` | evidence collected from Warehouse |
+| _paymentAuthorized | `bool` | gate flag |
+| _stockReserved | `bool` | gate flag |
+
+**New behavior**:
+
+- `MarkPaymentAuthorized(string paymentAuthorizationId, Guid correlationId)` → `RaiseEvent(...)`, sets flag; then evaluates the gate.
+- `MarkStockReserved(string stockReservationId, Guid correlationId)` → sets flag; then evaluates the gate.
+- `MarkPaymentDeclined(...)` / `MarkStockReservationRejected(...)` → record negative outcome; **no** automatic compensation (FR-011/OQ-1); saga stays unconfirmed.
+- **Gate**: when `_paymentAuthorized && _stockReserved`, `RaiseEvent(SagaSalesOrderReadyToConfirm(salesOrderId, paymentAuthorizationId, stockReservationId, correlationId))` exactly once.
+
+## Evidence / reference summary (BC-009)
+
+| Reference | Produced by | Stored by (evidence) | Carried in |
+|---|---|---|---|
+| `PaymentAuthorizationId` | Payment | Sales (`PaymentAuthorizationReference`), Saga | `PaymentAuthorizedIntegrationEvent`, gate event, `ConfirmSalesOrder` |
+| `StockReservationId` | Warehouse | Sales (`StockReservationReference`), Saga | `StockReservedIntegrationEvent`, gate event, `ConfirmSalesOrder` |
+
+## Confirmation invariant (authoritative)
 
 ```text
-Accepted ──Confirm(both references present)──▶ Confirmed
-Accepted ──Confirm(reference missing)───────▶ Accepted (unchanged; no event)
-Confirmed ─Confirm(...)──────────────────────▶ Confirmed (idempotent no-op)
+SalesOrder.Status = Confirmed  ⇒  PaymentAuthorizationReference present  ∧  StockReservationReference present
 ```
 
-> Failure outcomes (`PaymentAuthorizationFailed`, `StockReservationFailed`) do not transition the Sales Order; it remains in its pre-confirmation status (Q1/Q3, FR-014).
-
-## Value Objects
-
-### `PaymentAuthorizationId` *(external decision reference)*
-
-| Property | Type | Notes |
-|----------|------|-------|
-| `Value` | `string` | Identifier of the Payment authorization outcome. Immutable, value-compared. |
-
-- Shared id: `BrewUp.Shared.DomainIds.PaymentAuthorizationId : DomainId`.
-- Sales-local wrapper (if a context-local custom type is needed for the aggregate) lives in `BrewUp.Sales.SharedKernel.CustomTypes`.
-- **Owner**: Payment. Sales stores it only as evidence (BC-004/BC-009).
-
-### `StockReservationId` *(external decision reference)*
-
-| Property | Type | Notes |
-|----------|------|-------|
-| `Value` | `string` | Identifier of the Warehouse stock-reservation outcome. Immutable, value-compared. |
-
-- Shared id: `BrewUp.Shared.DomainIds.StockReservationId : DomainId`.
-- Sales-local wrapper in `BrewUp.Sales.SharedKernel.CustomTypes` if required by the aggregate.
-- **Owner**: Warehouse. Sales stores it only as evidence (BC-006/BC-009).
-
-## Saga State: Sales Order Saga *(`BrewUp.Sagas.Domain.Entities.SalesOrderSaga`)*
-
-Existing saga, extended to gather confirmation evidence and emit the confirmation command.
-
-### New / changed state
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `_paymentAuthorizationId` | `string` (empty until set) | Recorded when `PaymentAuthorized` arrives. |
-| `_stockReservationId` | `string` (empty until set) | Recorded when `StockReserved` arrives. |
-
-### New behavior (raises saga events; mirrors existing `Mark*` pattern)
-
-- `MarkPaymentAuthorized(string paymentAuthorizationId, Guid correlationId)` — records payment evidence.
-- `MarkStockReserved(string stockReservationId, Guid correlationId)` — records reservation evidence.
-- `MarkConfirmationFailed(string reason, Guid correlationId)` — records a failure; no Sales Order transition.
-- **Coordination rule**: when **both** `_paymentAuthorizationId` and `_stockReservationId` are present, the orchestrator sends `ConfirmSalesOrder` to Sales (once — idempotent guard).
-
-### Orchestrator additions (`SalesOrderSagaOrchestrator`)
-
-- `IIntegrationEventHandlerAsync<PaymentAuthorized>` → `MarkPaymentAuthorized` → maybe-confirm.
-- `IIntegrationEventHandlerAsync<StockReserved>` → `MarkStockReserved` → maybe-confirm.
-- `IIntegrationEventHandlerAsync<PaymentAuthorizationFailed>` / `IIntegrationEventHandlerAsync<StockReservationFailed>` → `MarkConfirmationFailed`.
-
-## Entity: Sales Order Row *(existing — unchanged)*
-
-`SalesOrderRowJson { BeerId, BeerName, Quantity, Price }` — used to express the requested beers when the saga asks Warehouse to reserve stock. No change required.
-
-## Cross-reference to contracts
-
-See [contracts/commands.md](contracts/commands.md), [contracts/domain-events.md](contracts/domain-events.md), and [contracts/integration-events.md](contracts/integration-events.md) for the exact message shapes.
+Both negations (either reference missing) MUST NOT yield `Confirmed`. This is enforced inside the `SalesOrder` aggregate and verified by a property-based test (Constitution V).

@@ -1,82 +1,57 @@
 # Phase 0 Research: Sales Order Confirmation
 
-All Technical Context items are known from the existing codebase; no `NEEDS CLARIFICATION` remained after spec clarification. This document records the design decisions, rationale, and rejected alternatives, plus the domain-carrier compliance mapping.
+This document resolves the technical unknowns for the plan. The domain decisions were resolved in the spec's Clarifications (Session 2026-06-27); the items below are technical/structural decisions only and do **not** move decision authority (BC-000…BC-011, AR-000…AR-018 preserved).
 
-## Existing-System Findings
+## R1 — Is Payment in scope, and how is it implemented?
 
-- **Framework**: Muflone provides `AggregateRoot`, `CommandHandlerAsync<T>`, event sourcing, and `Muflone.SpecificationTests` (`CommandSpecification` with `Given()/When()/Expect()`). Sagas use `Muflone.Saga` (`ISagaStartedByAsync`, `IIntegrationEventHandlerAsync`).
-- **Sales Order aggregate** (`BrewUp.Sales.Domain.Entities.SalesOrder`) already supports `Create`, `AddBeers`, `AcceptOrder`, `CloseSalesOrder`, raising domain events applied to mutate state. Status is `BrewUp.Sales.SharedKernel.Enums.SalesOrderStatus` (`Accepted`, `WorkInProgress`, `Completed`, `Closed`, `Rejected`).
-- **Saga** (`BrewUp.Sagas.Domain.Orchestrators.SalesOrderSagaOrchestrator` + `SalesOrderSaga`) already coordinates a flow reacting to `CustomerBudgetVerified`/`CustomerBudgetUnVerified` and `RequestBeersAvailabilityChecked`, then emits `SagasSalesOrderAccepted` and marks completion.
-- **No Payment context exists** — repository-wide search for `Payment`/`Authoriz` returns zero matches. The closest existing concept is `CustomerBudgetVerified`, which is a budget check, **not** a payment authorization.
-- **No stock reservation exists yet** — Warehouse has `Availability` (read of stock) and an availability check (`RequestBeersAvailabilityChecked`), and `RequestBeerAvailablityRaisedEventHandler` contains an explicit `// At least we need a command to reserve the quantity // ReserveBeer command` TODO. Availability is computed, not reserved; consistent with the carrier's "availability is not durable".
-- **Strongly-typed ids**: `BrewUp.Shared.DomainIds.*` derive from `Muflone.Core.DomainId(string)`. Existing shared contract types: `ItemRequested(BeerId, Quantity QuantityOrdered, Quantity QuantityAvailable)`, `SalesOrderRowJson`.
-- **Testing**: xUnit + `Muflone.SpecificationTests`; architecture fitness via NetArchTest (`SalesArchitectureTests`, `SagasArchitectureTests`). No property-based (CsCheck/FsCheck) or mutation (Stryker) tooling present.
+- **Decision**: Payment is **in scope** and implemented as a **full BrewUp module** `src/Payment/` with the standard 6 projects.
+- **Rationale**: The feature requires payment-authorization outcomes (`PaymentAuthorized` / `PaymentDeclined`) and a command to authorize. The architecture memory "When Payment must be created" criteria are all met (separate authority, behavior required, not declared external). Constitution II and AR-001/AR-002/AR-016 mandate a full module rather than folders inside Sales or the Saga.
+- **Alternatives considered**: (a) Treat Payment as an external already-existing system — rejected because the spec does not declare it external and the feature must demonstrate the authorization outcome end-to-end. (b) Put Payment commands/events in Sales or Sagas — rejected, violates AR-016.
 
-## Decisions
+## R2 — Coordination mechanism (OQ-5/OQ-6 resolved → coordinator dispatches Confirm)
 
-### D1 — Payment authorization is an external decision reached via a `BrewUp.Shared` integration event; no Payment module is built here
+- **Decision**: Extend the **existing `SalesOrderSaga`** and its `SalesOrderSagaOrchestrator` as the coordinator. It requests payment authorization and stock reservation in parallel, reacts to outcomes, and raises a `SagaSalesOrderReadyToConfirm` gate event when both evidences are present; the Saga `ReadModel` publishes an integration event that the Sales ACL turns into a `ConfirmSalesOrder` command.
+- **Rationale**: A saga is the sanctioned BrewUp coordination mechanism (AR-018) and already orchestrates the Sales Order lifecycle (budget → availability → placement → acceptance). Reusing it avoids a competing coordinator. The saga coordinates without owning Payment/Warehouse decisions.
+- **Alternatives considered**: A new dedicated confirmation saga (more moving parts, duplicate correlation handling) — rejected for simplicity. An application service in Sales — rejected because it would pull cross-context coordination into Sales.
 
-- **Decision**: Model the Payment outcome as integration-event contracts in `BrewUp.Shared` (`PaymentAuthorized` carrying a `PaymentAuthorizationId`, and `PaymentAuthorizationFailed`). Sales/Sagas react to these. Producing the outcome (the actual Payment authority/provider integration) is **out of scope** for this feature and is supplied later or by a test double.
-- **Rationale**: BC-003/BC-004 forbid Sales from authorizing payment or interpreting provider behavior. The bounded-context split requires Sales to depend only on a decision delivered through a boundary. A contract is the minimum surface that honors this without inventing Payment internals.
-- **Alternatives considered**:
-  - *Reuse `CustomerBudgetVerified` as payment evidence* — rejected: a budget check is not a payment authorization; conflating them invents Payment semantics inside Sales/Sagas and violates the ubiquitous language.
-  - *Build a full Payment bounded context now* — rejected: large scope expansion beyond "order confirmation"; the feature only needs the decision reference and a reaction point.
+## R3 — How does Sales store external decision references without coupling? (BC-009, AR-015)
 
-### D2 — Stock reservation is a new Warehouse-owned decision exposed via `BrewUp.Shared`; Sales never reserves stock
+- **Decision**: Sales stores the references as its **own** value objects `PaymentAuthorizationReference` and `StockReservationReference` (each derived from `Muflone.Core.DomainId`) in `BrewUp.Sales.SharedKernel/CustomTypes`. The raw id strings travel inside the `SagaSalesOrderReadyToConfirmIntegrationEvent` and the `ConfirmSalesOrder` command; Sales wraps them.
+- **Rationale**: Keeps Sales free of any compile dependency on `Payment.*` or `Warehouse.*` projects (AR-015) while remaining strongly typed (Constitution I — no naked primitives across boundaries). The references are evidence, not handles into another aggregate (BC-009).
+- **Alternatives considered**: (a) Reference `Payment.SharedKernel.PaymentAuthorizationId` and `Warehouse.SharedKernel.StockReservationId` directly from Sales — allowed (SharedKernel is the contract surface) but introduces cross-module compile coupling; rejected to keep Sales maximally decoupled. (b) Store raw `string` — rejected, violates strongly-typed-ID rule.
 
-- **Decision**: Define `StockReserved` (carrying a `StockReservationId`) and `StockReservationFailed` integration-event contracts in `BrewUp.Shared`, plus a reservation **request** contract the saga emits toward Warehouse. The saga requests the reservation; Warehouse produces the outcome. Warehouse-side production of the reservation (the `ReserveBeer`/`ReserveStock` command handler and aggregate behavior) is acknowledged as a follow-up but the contract is defined now so Sales can react.
-- **Rationale**: BC-005/BC-006/BC-007 — Warehouse owns stock and reservation; only a durable reservation supports confirmation. Sales stores `StockReservationId` as evidence only.
-- **Alternatives considered**:
-  - *Treat availability-checked as sufficient for confirmation* — rejected: availability is explicitly non-durable (carrier); confirming on it risks confirming stock that is no longer reservable.
-  - *Have Sales call Warehouse availability and decide* — rejected: makes Sales the authority of truth for stock (BC-007 violation).
+## R4 — Event/command naming and placement (AR-004…AR-007, existing conventions)
 
-### D3 — The confirmation invariant lives inside the `SalesOrder` aggregate
+- **Decision**:
+  - Payment **domain** events/commands live in `BrewUp.Payment.SharedKernel/Messages` (`AuthorizePayment`, `PaymentAuthorized`, `PaymentDeclined`).
+  - Warehouse reservation command/events live in `BrewUp.Warehouse.SharedKernel/Messages` (`ReserveStock`, `StockReserved`, `StockReservationRejected`).
+  - Sales confirmation command/event live in `BrewUp.Sales.SharedKernel/Messages` (`ConfirmSalesOrder`, `SalesOrderConfirmed`).
+  - **Saga-facing integration events** live in `BrewUp.Shared/Messages/Events/Sagas` with the `…IntegrationEvent` suffix (matching existing `SalesOrderSagaStartedIntegrationEvent`): `PaymentAuthorizedIntegrationEvent`, `PaymentDeclinedIntegrationEvent`, `StockReservedIntegrationEvent`, `StockReservationRejectedIntegrationEvent`, `SagaSalesOrderReadyToConfirmIntegrationEvent`.
+- **Rationale**: Mirrors the established pattern where a module raises a `DomainEvent` and its `ReadModel` publishes a corresponding cross-context `IntegrationEvent` consumed by the saga / ACL handlers (e.g., `SalesOrderAccepted` → `SagasSalesOrderAccepted`).
+- **Alternatives considered**: Putting integration events in each module's SharedKernel — rejected; the repository centralizes saga-facing integration contracts in `BrewUp.Shared`.
 
-- **Decision**: Add `SalesOrder.Confirm(PaymentAuthorizationId, StockReservationId, correlationId)` that raises `SalesOrderConfirmed` only when **both** references are present; `Apply(SalesOrderConfirmed)` records both references and sets status to `Confirmed`. Add `Confirmed` to `SalesOrderStatus`.
-- **Rationale**: Principle I + BC-010 — invariants belong in the aggregate; no aggregate may exist in a `Confirmed`-without-evidence state. Expressing the change as a domain event preserves event sourcing.
-- **Alternatives considered**:
-  - *Enforce the rule in the command handler or saga* — rejected: leaks an invariant out of the domain (Principle I), allowing the aggregate to be driven into an invalid state by another path.
+## R5 — Partial reservation representation (OQ-2 resolved → partial allowed)
 
-### D4 — The existing Sales Order saga coordinates; Sales only reacts to `ConfirmSalesOrder`
+- **Decision**: `StockReserved` carries the reserved rows (the subset Warehouse actually reserved) and a single `StockReservationId`. The saga marks stock as reserved with that id. Sales stores the `StockReservationId` reference; it does not recompute or decide the subset.
+- **Rationale**: Warehouse owns which beers are reservable (BC-005); a single durable reservation id is sufficient evidence for confirmation (BC-006). Handling of the unreserved remainder is out of scope (FR-011/OQ-1).
+- **Alternatives considered**: Per-line reservation ids — rejected as unnecessary for the confirmation evidence and out of scope.
 
-- **Decision**: Extend `SalesOrderSaga` to track the payment-authorization and stock-reservation evidence as it arrives (`PaymentAuthorized`, `StockReserved`). When both are present, the saga sends a `ConfirmSalesOrder` command to Sales carrying both reference values. `ConfirmSalesOrderCommandHandler` loads the aggregate and calls `Confirm`.
-- **Rationale**: FR-012 (resolved Q2) assigns cross-context orchestration to the saga; keeps Sales a pure reactor (BC-008).
-- **Alternatives considered**:
-  - *A Sales application service orchestrates* — rejected by the resolved clarification (Q2 = saga).
+## R6 — Idempotent confirmation (FR-009)
 
-### D5 — Confirmation is idempotent
+- **Decision**: The `SalesOrder` aggregate guards the `Confirmed` transition: if already `Confirmed`, `ConfirmOrder(...)` is a no-op (no event raised). The saga's gate marks ReadyToConfirm only once.
+- **Rationale**: Event-sourced replay + at-least-once messaging require idempotent state transitions. Guarding in the aggregate keeps the invariant in the domain (Constitution I).
+- **Alternatives considered**: Dedup at the handler — rejected; the invariant belongs in the aggregate.
 
-- **Decision**: `SalesOrder.Confirm` is a no-op when status is already `Confirmed` (no second `SalesOrderConfirmed`); the saga guards against re-sending `ConfirmSalesOrder` once confirmed.
-- **Rationale**: FR-009; message buses can redeliver. Prevents duplicate confirmation and duplicate downstream reservation requests.
+## R7 — Status modeling
 
-### D6 — Failure handling stays minimal and within bounds
+- **Decision**: Add `Confirmed` to `SalesOrderStatus` (Enumeration smart-enum) with the next free id (`6`). The aggregate transitions to `Confirmed` only inside `Apply(SalesOrderConfirmed)`.
+- **Rationale**: Follows the existing `SalesOrderStatus` pattern; no naked status strings.
 
-- **Decision**: On `PaymentAuthorizationFailed` or `StockReservationFailed`, the Sales Order is **not** confirmed and remains in its pre-confirmation status; the saga records the failure. Sales does **not** void/refund payment or release stock (owned by Payment/Warehouse). No new compensation policy is invented.
-- **Rationale**: Resolved Q1/Q3 — order stays pre-confirmation; Payment owns release/void; out of Sales scope. FR-011/FR-014.
+## R8 — Testing approach (Constitution III & V)
 
-### D7 — Evidence references modeled as strongly-typed value objects
+- **Decision**: For each behavioral change, write a failing `CommandSpecification<T>` first (Given prior events / When command / Expect events). Add architecture fitness tests for the new Payment module and for the new cross-module boundaries. Express the confirmation invariant (Confirmed ⇒ both references present) as a property-based test; include Payment/Sales domain in the mutation-testing scope.
+- **Rationale**: Mandated by the constitution; matches existing `*Successfully` command specs in each module's `Tests/Domain`.
 
-- **Decision**: Introduce `PaymentAuthorizationId` and `StockReservationId` as `DomainId`-derived shared ids, with Sales-local value-object wrappers for the aggregate's stored evidence.
-- **Rationale**: Principle I — no naked primitives crossing boundaries; immutable, value-compared identifiers.
+## Resolved unknowns
 
-## Domain Carrier Compliance (BC-000 → BC-011)
-
-| Rule | How the plan complies |
-|------|----------------------|
-| BC-000 Authoritative rules | Carried into spec + this plan; constrain all artifacts. |
-| BC-001 Sales owns lifecycle | `SalesOrder` owns the `Confirmed` transition. |
-| BC-002 No embedded foreign models | Aggregate stores only `PaymentAuthorizationId`/`StockReservationId`, never Payment/Warehouse models. |
-| BC-003 Payment owns authorization | No payment authorization logic in Sales/Sagas; only reaction to `PaymentAuthorized`. |
-| BC-004 Payment Authorization is external | Modeled as a `BrewUp.Shared` integration event; Sales stores the id as evidence. |
-| BC-005 Warehouse owns stock | No stock truth in Sales; reservation requested from Warehouse. |
-| BC-006 Stock Reservation is external | Modeled as a `BrewUp.Shared` integration event; Sales stores the id as evidence. |
-| BC-007 Warehouse owns stock mutation | Sales never reserves/releases/decrements stock. |
-| BC-008 Reacting is not owning | Saga/Sales react to outcomes; never produce them. |
-| BC-009 References, not embedded models | Only ids stored. |
-| BC-010 Confirmed requires evidence | Invariant in `SalesOrder.Confirm` requires both ids. |
-| BC-011 Clarification preserves authority | Open questions retained in spec; resolved ones recorded explicitly. |
-
-## Open Risks / Follow-ups
-
-- **Property-based + mutation testing** (Principle V) not yet wired — tracked in plan Complexity Tracking.
-- **Warehouse-side reservation producer** (`ReserveStock` handler + aggregate behavior) and **Payment-side producer** are out of scope; this feature defines the contracts and the Sales/Sagas reaction. End-to-end validation uses test doubles emitting the outcome integration events (see quickstart.md).
+All Technical Context items are resolved; no `NEEDS CLARIFICATION` remains. Outstanding **domain** open questions OQ-4 (reservation lifetime — Warehouse) and OQ-7 (notification/downstream) remain intentionally unresolved and are **not** implemented by this plan.

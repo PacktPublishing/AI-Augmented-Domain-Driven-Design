@@ -22,11 +22,14 @@ public class SalesOrderSaga : AggregateRoot
     
     private SagaState _status;
     
-    private string _paymentAuthorizationId = string.Empty;
-    private string _stockReservationId = string.Empty;
-    
     private DateTime _startDate;
     private DateTime _endDate;
+
+    // Confirmation gate evidence (US2)
+    private bool _paymentAuthorized;
+    private bool _stockReserved;
+    private string _paymentAuthorizationId = string.Empty;
+    private string _stockReservationId = string.Empty;
     
     protected SalesOrderSaga()
     {}
@@ -119,6 +122,99 @@ public class SalesOrderSaga : AggregateRoot
         _status = SagaState.Accepted;
     }
 
+    /// <summary>
+    /// Initiates parallel requests for payment authorization and stock reservation (US2, AR-010).
+    /// Saga coordinates — it does not own either decision.
+    /// </summary>
+    internal void InitiateConfirmationRequests(Price amount, Guid correlationId)
+    {
+        var integrationId = new IntegrationId(Id.Value);
+
+        RaiseEvent(new SagaRequestsPaymentAuthorization(integrationId, correlationId,
+            _salesOrderId, amount));
+
+        RaiseEvent(new SagaRequestsStockReservation(integrationId, correlationId,
+            _salesOrderId, _warehouseId, _rows));
+    }
+
+    private void Apply(SagaRequestsPaymentAuthorization @event)
+    {
+        // coordination state only
+    }
+
+    private void Apply(SagaRequestsStockReservation @event)
+    {
+        // coordination state only
+    }
+
+    /// <summary>
+    /// Records that Payment BC authorized the payment. Fires confirmation gate if both evidences present.
+    /// </summary>
+    internal void MarkPaymentAuthorized(string paymentAuthorizationId, Guid correlationId)
+    {
+        _paymentAuthorized = true;
+        _paymentAuthorizationId = paymentAuthorizationId;
+
+        CheckConfirmationGate(correlationId);
+    }
+
+    private void Apply(SagaSalesOrderReadyToConfirm @event)
+    {
+        _status = SagaState.Accepted;
+    }
+
+    /// <summary>
+    /// Records that Warehouse BC reserved the stock. Fires confirmation gate if both evidences present.
+    /// </summary>
+    internal void MarkStockReserved(string stockReservationId, Guid correlationId)
+    {
+        _stockReserved = true;
+        _stockReservationId = stockReservationId;
+
+        CheckConfirmationGate(correlationId);
+    }
+
+    private void CheckConfirmationGate(Guid correlationId)
+    {
+        if (!_paymentAuthorized || !_stockReserved)
+            return;
+
+        // Both evidences present — gate fires exactly once (idempotent: aggregate status guards re-raise)
+        if (_status == SagaState.Closed)
+            return;
+
+        RaiseEvent(new SagaSalesOrderReadyToConfirm(new IntegrationId(Id.Value), correlationId,
+            _salesOrderId, _paymentAuthorizationId, _stockReservationId));
+    }
+
+    /// <summary>
+    /// Records that Payment BC declined payment. No compensation in scope (OQ-4).
+    /// </summary>
+    internal void MarkPaymentDeclined(string reason, Guid correlationId)
+    {
+        RaiseEvent(new SagaPaymentDeclined(new IntegrationId(Id.Value), correlationId,
+            _salesOrderId, reason));
+    }
+
+    private void Apply(SagaPaymentDeclined @event)
+    {
+        _status = SagaState.Rejected;
+    }
+
+    /// <summary>
+    /// Records that Warehouse BC rejected stock reservation. No compensation in scope (OQ-7).
+    /// </summary>
+    internal void MarkStockReservationRejected(string reason, Guid correlationId)
+    {
+        RaiseEvent(new SagaStockReservationRejected(new IntegrationId(Id.Value), correlationId,
+            _salesOrderId, reason));
+    }
+
+    private void Apply(SagaStockReservationRejected @event)
+    {
+        _status = SagaState.Rejected;
+    }
+
     internal void MarkSagaAsSuccessfullyCompleted(Guid correlationId)
     {
         RaiseEvent(new SagaSalesOrderSuccessfullyCompleted(new IntegrationId(Id.Value), correlationId));
@@ -128,73 +224,5 @@ public class SalesOrderSaga : AggregateRoot
     {
         _endDate = DateTime.UtcNow;
         _status = SagaState.Closed;
-    }
-
-    // ── Confirmation path ────────────────────────────────────────────
-
-    internal void MarkPaymentAuthorized(string paymentAuthorizationId, Guid correlationId)
-    {
-        RaiseEvent(new SagaPaymentAuthorized(new IntegrationId(Id.Value), correlationId,
-            paymentAuthorizationId));
-    }
-
-    private void Apply(SagaPaymentAuthorized @event)
-    {
-        _paymentAuthorizationId = @event.PaymentAuthorizationId;
-        TryRaiseReadyToConfirm(@event.MessageId);
-    }
-
-    internal void MarkPaymentAuthorizationFailed(string reason, Guid correlationId)
-    {
-        RaiseEvent(new SagaPaymentAuthorizationFailed(new IntegrationId(Id.Value), correlationId,
-            reason));
-    }
-
-    private void Apply(SagaPaymentAuthorizationFailed @event)
-    {
-        _status = SagaState.Rejected;
-    }
-
-    internal void MarkStockReserved(string stockReservationId, IEnumerable<ItemRequested> rows,
-        Guid correlationId)
-    {
-        RaiseEvent(new SagaStockReserved(new IntegrationId(Id.Value), correlationId,
-            stockReservationId, rows));
-    }
-
-    private void Apply(SagaStockReserved @event)
-    {
-        _stockReservationId = @event.StockReservationId;
-        TryRaiseReadyToConfirm(@event.MessageId);
-    }
-
-    internal void MarkStockReservationFailed(string reason, Guid correlationId)
-    {
-        RaiseEvent(new SagaStockReservationFailed(new IntegrationId(Id.Value), correlationId,
-            reason));
-    }
-
-    private void Apply(SagaStockReservationFailed @event)
-    {
-        _status = SagaState.Rejected;
-    }
-
-    private void Apply(SagaSalesOrderReadyToConfirm @event)
-    {
-        // State is already set; orchestrator reacts to this event to dispatch ConfirmSalesOrder.
-    }
-
-    /// <summary>
-    /// Raises <see cref="SagaSalesOrderReadyToConfirm"/> only when BOTH external references are present.
-    /// Implements BC-003: payment must be authorized AND stock must be reserved before confirmation.
-    /// </summary>
-    private void TryRaiseReadyToConfirm(Guid correlationId)
-    {
-        if (string.IsNullOrWhiteSpace(_paymentAuthorizationId) ||
-            string.IsNullOrWhiteSpace(_stockReservationId))
-            return;
-
-        RaiseEvent(new SagaSalesOrderReadyToConfirm(new IntegrationId(Id.Value), correlationId,
-            _salesOrderId, _paymentAuthorizationId, _stockReservationId));
     }
 }
