@@ -1,0 +1,74 @@
+run_id: 9.5-context-mapper
+classification: authoring reference; NOT primary experimental evidence
+date_started: '2026-08-22T19:17:00+02:00'
+date_completed: '2026-08-22T19:24:00+02:00'
+repo_commit: UNCOMMITTED-AUTHORING-REFERENCE
+branch: ch09/9.5-context-mapper
+source_branch: ch09/9.4-command-event-writer
+baseline_exposure:
+  occurred: true
+  effect: The generating session had inspected evidence-inventory.md, failure-hypotheses.md, and the frozen carrier before preparing this reference output. The output must therefore be rerun in a fresh staged workspace before it can be classified as a primary run.
+contract:
+  source: docs/ch09/run-pack/contracts/brewup.context-mapper.agent.md
+  staged_as: brewup.context-mapper.agent.md
+  sha256: f6db6ef6a8b5ce669795e54ed7a33659591c1432c548b0408d5965aeab1ce43f
+inputs:
+- source: docs/ch09/runs/9.2-eventstormer/accepted-facts.md
+  staged_as: accepted-facts.md
+  sha256: 19e3f6b74862d82ce9e58789969b699a977745892e863a4d8868776f1546eae4
+- source: docs/ch09/runs/9.3-storyteller/accepted-scenarios.md
+  staged_as: accepted-scenarios.md
+  sha256: d7c358aa804ec5f703203c02ceff68b6e9d01e56cf1ab981af0ed316efb7f2d7
+- source: docs/ch09/runs/9.4-command-event-writer/accepted-behaviour.md
+  staged_as: accepted-behaviour.md
+  sha256: 7b8d506f3a6f6a6a589d7dc464db70e4a1f4df0dd1675dfd85b690ddbcfb9a14
+- source: docs/ch09/run-pack/stock-walkthrough.md
+  staged_as: stock-walkthrough.md
+  sha256: 29fbf6838fe5bc0f1e843aeecb86fedb4060e97138b2889f20af1bfdd3252be5
+- source: docs/ch09/run-pack/glossary.md
+  staged_as: glossary.md
+  sha256: dba095c357abf8eef1e0b4f68b781719df545e562fd8ca0ef7395e16ee3f7794
+- source: docs/ch09/run-pack/constitution-excerpt.md
+  staged_as: constitution-excerpt.md
+  sha256: e0af5cdf9eb0eb1b1c4c6ca665ab042a0a6d89573da1260fbdf7e160cf420ae8
+- source: docs/ch09/run-pack/handoff-schema.md
+  staged_as: handoff-schema.md
+  sha256: 2e2bdcb2cd50a018e9a5efe50c3f38e5761fe3e376c0cac0ed1e7348074b2e8f
+scratch_workspace:
+  path: /mnt/data/ch09-9.5-context-mapper-input.authoring
+  isolation: controlled-input staging for authoring reference; not a claim of technical filesystem or conversational isolation
+  recursive_listing:
+  - .
+  - ./brewup.context-mapper.agent.md
+  - ./accepted-facts.md
+  - ./accepted-scenarios.md
+  - ./accepted-behaviour.md
+  - ./stock-walkthrough.md
+  - ./glossary.md
+  - ./constitution-excerpt.md
+  - ./handoff-schema.md
+runtime:
+  executable: ChatGPT
+  version: product runtime, 2026-08-22
+  model: GPT-5.6 Sol
+  harness: ChatGPT authoring session
+  parameters:
+    sandbox: n/a
+    user_config: n/a
+    repository_rules: n/a
+    ephemeral: false
+    git_repository_check: n/a
+procedure:
+  invocation: Open brewup.context-mapper.agent.md and follow it exactly. Treat the files in this workspace as the complete supplied input for this run. Do not inspect paths outside this workspace. Return only the YAML document required by handoff-schema.md.
+  command: not applicable — authoring reference generated in the ChatGPT session; use run-9.5-context-mapper.sh for a primary Codex replay
+runtime_events:
+  captured_at: docs/ch09/runs/9.5-context-mapper/runtime-events.jsonl
+  sha256: 46ba0109e7cb21f5716ad80acd196c88fcf85077a3c904652723d5e0aaa62f6f
+exit_code: 0
+attempt: 1
+retry_performed: false
+output:
+  file: docs/ch09/runs/9.5-context-mapper/raw-output.md
+  sha256: 567ffe9b06794160ecb53c45a3e452a077c11ed5019deb2dbc409783b308cc43
+  edited_after_capture: false
+  truncated: false
