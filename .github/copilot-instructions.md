@@ -6,26 +6,6 @@
 - **001-order-confirmation** — Sales Order Confirmation. Plan: [specs/001-order-confirmation/plan.md](../specs/001-order-confirmation/plan.md) · Spec: [specs/001-order-confirmation/spec.md](../specs/001-order-confirmation/spec.md)
 <!-- SPECKIT END -->
 
-## BMAD Governance Overlay
-
-For a BrewUp BMAD review, load
-[`_bmad-output/project-context.md`](../_bmad-output/project-context.md), then
-the numbered rules and gate contract in
-[`.bmad-harness/governance/`](../.bmad-harness/governance/). Inspect the current
-BMAD artifact being reviewed under `_bmad-output/`; do not guess between
-ambiguous candidates or replace numbered governance with the context summary.
-
-Use the explicit read-only guard agents in workflow order:
-[context loader](agents/bmad-brewup-load-domain-context.agent.md),
-[product brief](agents/bmad-brewup-product-brief-guard.agent.md),
-[PRD](agents/bmad-brewup-prd-guard.agent.md),
-[architecture readiness](agents/bmad-brewup-architecture-readiness.agent.md),
-[architecture](agents/bmad-brewup-architecture-guard.agent.md),
-[epics/stories](agents/bmad-brewup-epics-stories-guard.agent.md),
-[implementation readiness](agents/bmad-brewup-implementation-readiness.agent.md),
-[story](agents/bmad-brewup-story-guard.agent.md), and
-[code review](agents/bmad-brewup-code-review-guard.agent.md).
-
 ## Solution Overview
 
 BrewUp is a **DDD Modular Monolith** built on **.NET 10 / C#** using CQRS and Event Sourcing.

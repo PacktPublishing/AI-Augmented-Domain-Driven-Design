@@ -3,10 +3,9 @@ using Muflone.Messages.Events;
 
 namespace BrewUp.Payment.SharedKernel.Messages.Events;
 
-public sealed class PaymentAuthorized(
-    PaymentAuthorizationId aggregateId,
-    string providerReference,
-    Guid correlationId) : DomainEvent(aggregateId, correlationId)
+public sealed class PaymentAuthorized(PaymentAuthorizationId aggregateId,
+    Guid correlationId,
+    string salesOrderId) : DomainEvent(aggregateId, correlationId)
 {
-    public string ProviderReference { get; } = providerReference;
+    public string SalesOrderId { get; private set; } = salesOrderId;
 }

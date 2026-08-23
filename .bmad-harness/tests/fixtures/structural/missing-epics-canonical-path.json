@@ -1,7 +1,0 @@
-{
-  "name": "epics guard canonical path drift",
-  "target": ".github/agents/bmad-brewup-epics-stories-guard.agent.md",
-  "search": "_bmad-output/planning-artifacts/epics.md",
-  "replace": "_bmad-output/planning-artifacts/wrong-epics.md",
-  "expectedCheckId": "agent-artifact-path"
-}

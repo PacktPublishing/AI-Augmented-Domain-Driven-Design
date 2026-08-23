@@ -48,11 +48,15 @@ The most important risks to detect are:
 Read the following files if they exist:
 
 * `.specify/memory/constitution.md`
-* `specs/001-sales-order-confirmation/domain-carrier.md`
-* `specs/001-sales-order-confirmation/spec.md`
-* `specs/001-sales-order-confirmation/clarify-log.md`
+* `.specify/memory/domain-carriers/brewup-sales-order-confirmation.md`
+* `specs/001-order-confirmation/spec.md`
+* `specs/001-order-confirmation/clarify-log.md`
 
-If `specs/001-sales-order-confirmation/spec.md` does not exist, try to locate the current active specification under:
+The domain carrier is the source of truth for this bounded context.
+
+Where the rules restated in this agent and the domain carrier disagree, the domain carrier wins.
+
+If `specs/001-order-confirmation/spec.md` does not exist, try to locate the current active specification under:
 
 * `specs/*/spec.md`
 

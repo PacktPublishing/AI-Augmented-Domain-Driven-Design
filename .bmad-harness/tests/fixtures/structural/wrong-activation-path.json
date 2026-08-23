@@ -1,7 +1,0 @@
-{
-  "name": "wrong workflow activation path",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "\"Load {project-root}/_bmad-output/project-context.md.\",",
-  "replace": "\"Load {project-root}/wrong/project-context.md.\",",
-  "expectedCheckId": "override-activation"
-}

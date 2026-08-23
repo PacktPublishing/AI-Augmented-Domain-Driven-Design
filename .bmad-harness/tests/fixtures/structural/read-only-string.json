@@ -1,7 +1,0 @@
-{
-  "name": "string agent readOnly",
-  "target": ".bmad-harness/manifest.json",
-  "search": "\"readOnly\": true",
-  "replace": "\"readOnly\": \"true\"",
-  "expectedCheckId": "manifest-agents"
-}

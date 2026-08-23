@@ -1,7 +1,0 @@
-{
-  "name": "inserted workflow completion policy",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "Validate requirements and acceptance criteria against BC-###. Report",
-  "replace": "Validate requirements and acceptance criteria against BC-###. Retry twice on timeout. Report",
-  "expectedCheckId": "override-on-complete"
-}

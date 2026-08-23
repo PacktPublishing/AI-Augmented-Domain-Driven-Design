@@ -9,8 +9,9 @@ public class SalesOrderStatus(int id, string name) : Enumeration(id, name)
     public static SalesOrderStatus Completed = new (3, nameof(Completed).ToLowerInvariant());
     public static SalesOrderStatus Closed = new (4, nameof(Closed).ToLowerInvariant());
     public static SalesOrderStatus Rejected = new (5, nameof(Rejected).ToLowerInvariant());
+    public static SalesOrderStatus Confirmed = new (6, nameof(Confirmed).ToLowerInvariant());
 
-    public static IEnumerable<SalesOrderStatus> List() => [Accepted, WorkInProgress, Completed, Closed, Rejected];
+    public static IEnumerable<SalesOrderStatus> List() => [Accepted, WorkInProgress, Completed, Closed, Rejected, Confirmed];
 
     public static SalesOrderStatus FromName(string name)
     {

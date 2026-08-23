@@ -1,7 +1,0 @@
-{
-  "name": "code review canonical story root drift",
-  "target": ".github/agents/bmad-brewup-code-review-guard.agent.md",
-  "search": "_bmad-output/implementation-artifacts/",
-  "replace": "_bmad-output/wrong-artifacts/",
-  "expectedCheckId": "agent-artifact-path"
-}

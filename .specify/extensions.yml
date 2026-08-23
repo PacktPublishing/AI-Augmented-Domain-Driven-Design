@@ -7,23 +7,50 @@ settings:
 
 hooks:
   before_specify:
+  # Sales Order Confirmation loader.
+  # Disable this one when specifying a Stock Management feature.
   - extension: brewup-sdd
     command: speckit.brewup.load-domain-context
-    enabled: true
+    enabled: false
     optional: true
     priority: 5
     prompt: Execute speckit.brewup.load-domain-context?
     description: Load BrewUp Sales Order domain context before specification
     condition: null
 
+  # Stock Management loader.
+  # Enable this one (and disable the Sales Order loader above) when specifying
+  # a Stock Management feature such as stock reservation.
+  - extension: brewup-sdd
+    command: speckit.brewup.load-stock-context
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.load-stock-context?
+    description: Load BrewUp Stock Management domain context before specification
+    condition: null
+
   after_specify:
+  # Sales Order Confirmation guard.
+  # Disable this one when specifying a Stock Management feature.
   - extension: brewup-sdd
     command: speckit.brewup.domain-guard
-    enabled: true
+    enabled: false
     optional: true
     priority: 5
     prompt: Execute speckit.brewup.domain-guard?
     description: Validate Sales, Payment, and Warehouse ownership after specification
+    condition: null
+
+  # Stock Management guard.
+  # Pairs with speckit.brewup.load-stock-context in before_specify.
+  - extension: brewup-sdd
+    command: speckit.brewup.stock-guard
+    enabled: true
+    optional: true
+    priority: 5
+    prompt: Execute speckit.brewup.stock-guard?
+    description: Validate Stock Management ownership and open questions after specification
     condition: null
 
   - extension: agent-context

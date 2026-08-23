@@ -1,6 +1,7 @@
 ﻿using BrewUp.Sagas.Domain.Entities;
 using BrewUp.Sagas.SharedKernel.CustomTypes;
 using BrewUp.Sagas.SharedKernel.Messages.Commands;
+using BrewUp.Shared.CustomTypes;
 using BrewUp.Shared.Messages.Events.Sagas;
 using Lena.Core;
 using Muflone.Messages;
@@ -17,7 +18,11 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
     IIntegrationEventHandlerAsync<CustomerBudgetUnVerified>,
     IIntegrationEventHandlerAsync<SalesOrderPlaced>,
     IIntegrationEventHandlerAsync<RequestBeersAvailabilityChecked>,
-    IIntegrationEventHandlerAsync<SagasSalesOrderAccepted>
+    IIntegrationEventHandlerAsync<SagasSalesOrderAccepted>,
+    IIntegrationEventHandlerAsync<PaymentAuthorizedIntegrationEvent>,
+    IIntegrationEventHandlerAsync<StockReservedIntegrationEvent>,
+    IIntegrationEventHandlerAsync<PaymentDeclinedIntegrationEvent>,
+    IIntegrationEventHandlerAsync<StockReservationRejectedIntegrationEvent>
 {
     public async Task<Result<string>> StartSagaAsync(StartSalesOrderSaga command, CancellationToken cancellationToken)
     {
@@ -90,6 +95,60 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
             .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
             .ConfigureAwait(false);
         aggregate!.MarkSalesOrderAsPlaced(correlationId);
+
+        // Compute order total for payment authorization (Saga coordinates; Payment decides)
+        var total = @event.Rows.Sum(r => r.Price.Value);
+        var currency = @event.Rows.FirstOrDefault()?.Price.Currency ?? string.Empty;
+        aggregate.InitiateConfirmationRequests(new Price(total, currency), correlationId);
+
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(PaymentAuthorizedIntegrationEvent @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkPaymentAuthorized(@event.PaymentAuthorizationId, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(StockReservedIntegrationEvent @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkStockReserved(@event.StockReservationId, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(PaymentDeclinedIntegrationEvent @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkPaymentDeclined(@event.Reason, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(StockReservationRejectedIntegrationEvent @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkStockReservationRejected(@event.Reason, correlationId);
         await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
     }
     
