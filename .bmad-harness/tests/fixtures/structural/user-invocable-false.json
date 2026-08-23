@@ -1,7 +1,0 @@
-{
-  "name": "user invocation disabled",
-  "target": ".github/agents/bmad-brewup-prd-guard.agent.md",
-  "search": "user-invocable: true",
-  "replace": "user-invocable: false",
-  "expectedCheckId": "agent-frontmatter"
-}

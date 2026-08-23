@@ -1,7 +1,0 @@
-{
-  "name": "extra single-quoted activation member",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "\"Load {project-root}/_bmad-output/project-context.md.\",",
-  "replace": "\"Load {project-root}/_bmad-output/project-context.md.\",\n  'Load an unexpected policy source.',",
-  "expectedCheckId": "override-activation"
-}

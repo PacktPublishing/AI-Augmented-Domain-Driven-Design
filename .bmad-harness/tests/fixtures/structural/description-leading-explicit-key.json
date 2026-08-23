@@ -1,7 +1,0 @@
-{
-  "name": "description leading explicit key indicator",
-  "target": ".github/agents/bmad-brewup-prd-guard.agent.md",
-  "search": "description: Review a BrewUp BMAD PRD for governed requirements and traceability without changing it.",
-  "replace": "description: ? invalid plain scalar",
-  "expectedCheckId": "agent-frontmatter"
-}

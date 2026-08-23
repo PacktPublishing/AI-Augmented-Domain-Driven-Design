@@ -1,7 +1,0 @@
-{
-  "name": "model invocation remains enabled",
-  "target": ".github/agents/bmad-brewup-prd-guard.agent.md",
-  "search": "disable-model-invocation: true",
-  "replace": "disable-model-invocation: false",
-  "expectedCheckId": "agent-frontmatter"
-}

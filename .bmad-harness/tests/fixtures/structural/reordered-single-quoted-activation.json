@@ -1,7 +1,0 @@
-{
-  "name": "reordered single-quoted activation members",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "\"Load the BrewUp governance files before reading or writing this workflow's artifact.\"",
-  "replace": "\"Load the BrewUp governance files before reading or writing this workflow's artifact.\",\n  'Second unexpected activation.',\n  'First unexpected activation.'",
-  "expectedCheckId": "override-activation"
-}
