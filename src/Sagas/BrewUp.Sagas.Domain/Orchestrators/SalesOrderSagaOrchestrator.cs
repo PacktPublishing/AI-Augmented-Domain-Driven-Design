@@ -17,7 +17,11 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
     IIntegrationEventHandlerAsync<CustomerBudgetUnVerified>,
     IIntegrationEventHandlerAsync<SalesOrderPlaced>,
     IIntegrationEventHandlerAsync<RequestBeersAvailabilityChecked>,
-    IIntegrationEventHandlerAsync<SagasSalesOrderAccepted>
+    IIntegrationEventHandlerAsync<SagasSalesOrderAccepted>,
+    IIntegrationEventHandlerAsync<PaymentAuthorized>,
+    IIntegrationEventHandlerAsync<PaymentAuthorizationFailed>,
+    IIntegrationEventHandlerAsync<StockReserved>,
+    IIntegrationEventHandlerAsync<StockReservationFailed>
 {
     public async Task<Result<string>> StartSagaAsync(StartSalesOrderSaga command, CancellationToken cancellationToken)
     {
@@ -77,7 +81,7 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
             .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
             .ConfigureAwait(false);
 
-        aggregate!.MarkAvailabilityChecked(correlationId, @event.StockReservationId, @event.Rows);
+        aggregate!.MarkAvailabilityChecked(correlationId, @event.Rows);
         await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
     }
     
@@ -102,6 +106,54 @@ internal sealed class SalesOrderSagaOrchestrator(IRepository repository) :
             .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
             .ConfigureAwait(false);
         aggregate!.MarkSagaAsSuccessfullyCompleted(correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(PaymentAuthorized @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkPaymentAuthorized(@event.PaymentAuthorizationId, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(PaymentAuthorizationFailed @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkPaymentAuthorizationFailed(@event.Reason, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(StockReserved @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkStockReserved(@event.StockReservationId, @event.Rows, correlationId);
+        await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task HandleAsync(StockReservationFailed @event, CancellationToken cancellationToken = new())
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var correlationId = MessageHelpers.GetCorrelationId(@event);
+        var aggregate = await repository
+            .GetByIdAsync<SalesOrderSaga>(new SagaId(correlationId.ToString()), cancellationToken)
+            .ConfigureAwait(false);
+        aggregate!.MarkStockReservationFailed(@event.Reason, correlationId);
         await repository.SaveAsync(aggregate, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
     }
 

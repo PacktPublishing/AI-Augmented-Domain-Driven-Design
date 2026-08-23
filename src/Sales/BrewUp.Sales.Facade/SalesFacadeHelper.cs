@@ -45,6 +45,7 @@ public static class SalesFacadeHelper
         services.AddIntegrationEventHandler<SagaCustomerBudgetVerifiedSagaCustomerBudgetVerifiedIntegrationEventHandler>();
         services.AddIntegrationEventHandler<SagaSalesOrderAvailabilityCheckedForNotificationIntegrationEventHandler>();
         services.AddIntegrationEventHandler<SagaSalesOrderAvailabilityCheckedIntegrationEventHandler>();
+        services.AddIntegrationEventHandler<SagaSalesOrderReadyToConfirmIntegrationEventHandler>();
 
         return services;
     }

@@ -17,8 +17,7 @@ public sealed class SagaSalesOrderAvailablityCheckedEventHandler(IEventBus event
         cancellationToken.ThrowIfCancellationRequested();
         
         SagaSalesOrderAvailabilityCheckedIntegrationEvent integrationEvent = new(new IntegrationId(@event.AggregateId.Value),
-            MessageHelpers.GetCorrelationId(@event), @event.SalesOrderId, @event.PaymentAuthorizationId,
-            @event.StockReservationId, @event.Rows);
+            MessageHelpers.GetCorrelationId(@event), @event.SalesOrderId, @event.Rows);
         await eventBus.PublishAsync(integrationEvent, cancellationToken);
     }
 }

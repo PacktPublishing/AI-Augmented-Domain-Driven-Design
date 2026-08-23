@@ -16,10 +16,11 @@ public class SalesOrder : AggregateRoot
     private Customer _customer = null!;
     private SalesOrderDeliveryDate _salesOrderDeliveryDate = null!;
     private List<SalesOrderRow> _rows = [];
-    private PaymentAuthorizationId? _paymentAuthorizationId;
-    private StockReservationId? _stockReservationId;
     
     private SalesOrderStatus _salesOrderStatus;
+    
+    private PaymentAuthorizationId? _paymentAuthorizationId;
+    private StockReservationId? _stockReservationId;
     
     protected SalesOrder()
     {}
@@ -122,28 +123,31 @@ public class SalesOrder : AggregateRoot
     {
         RaiseEvent(new SalesOrderAccepted(new SalesOrderId(Id.Value), correlationId));        
     }
-
-    internal void ConfirmOrder(
-        PaymentAuthorizationId paymentAuthorizationId,
-        StockReservationId stockReservationId,
-        Guid correlationId)
-    {
-        ArgumentNullException.ThrowIfNull(paymentAuthorizationId);
-        ArgumentNullException.ThrowIfNull(stockReservationId);
-
-        if (string.IsNullOrWhiteSpace(paymentAuthorizationId.Value))
-            throw new ArgumentException("Payment authorization id is required.", nameof(paymentAuthorizationId));
-
-        if (string.IsNullOrWhiteSpace(stockReservationId.Value))
-            throw new ArgumentException("Stock reservation id is required.", nameof(stockReservationId));
-
-        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), paymentAuthorizationId, stockReservationId,
-            correlationId));
-    }
     
     private void Apply(SalesOrderAccepted @event)
     {
         _salesOrderStatus = SalesOrderStatus.Accepted;
+    }
+
+    private void Apply(SalesOrderClosed @event)
+    {
+        _salesOrderDeliveryDate = @event.SalesOrderDeliveryDate;
+    }
+
+    internal void Confirm(PaymentAuthorizationId paymentAuthorizationId, StockReservationId stockReservationId,
+        Guid correlationId)
+    {
+        // Idempotency guard (INV-2 / FR-009): already confirmed — no-op.
+        if (Equals(_salesOrderStatus, SalesOrderStatus.Confirmed))
+            return;
+
+        // Invariant guard (BC-010 / FR-002 / INV-1): both references must be present.
+        if (string.IsNullOrWhiteSpace(paymentAuthorizationId?.Value) ||
+            string.IsNullOrWhiteSpace(stockReservationId?.Value))
+            return;
+
+        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), paymentAuthorizationId,
+            stockReservationId, correlationId));
     }
 
     private void Apply(SalesOrderConfirmed @event)
@@ -151,10 +155,5 @@ public class SalesOrder : AggregateRoot
         _paymentAuthorizationId = @event.PaymentAuthorizationId;
         _stockReservationId = @event.StockReservationId;
         _salesOrderStatus = SalesOrderStatus.Confirmed;
-    }
-
-    private void Apply(SalesOrderClosed @event)
-    {
-        _salesOrderDeliveryDate = @event.SalesOrderDeliveryDate;
     }
 }

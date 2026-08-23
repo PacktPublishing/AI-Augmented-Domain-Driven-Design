@@ -15,6 +15,4 @@ public class SalesOrderJson
     public IEnumerable<SalesOrderRowJson> Rows { get; set; } = [];
     
     public string Status { get; set; } = string.Empty;
-    public string? PaymentAuthorizationId { get; set; }
-    public string? StockReservationId { get; set; }
 }

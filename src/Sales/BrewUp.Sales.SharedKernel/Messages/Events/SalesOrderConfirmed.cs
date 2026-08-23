@@ -1,4 +1,4 @@
-﻿using BrewUp.Sales.SharedKernel.CustomTypes;
+using BrewUp.Sales.SharedKernel.CustomTypes;
 using BrewUp.Shared.DomainIds;
 using Muflone.Messages.Events;
 
@@ -10,6 +10,6 @@ public sealed class SalesOrderConfirmed(
     StockReservationId stockReservationId,
     Guid correlationId) : DomainEvent(aggregateId, correlationId)
 {
-    public PaymentAuthorizationId PaymentAuthorizationId { get; private set; } = paymentAuthorizationId;
-    public StockReservationId StockReservationId { get; private set; } = stockReservationId;
+    public PaymentAuthorizationId PaymentAuthorizationId { get; } = paymentAuthorizationId;
+    public StockReservationId StockReservationId { get; } = stockReservationId;
 }
