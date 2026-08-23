@@ -8,13 +8,13 @@
 
   <ItemGroup>
     <PackageReference Include="Lena" Version="1.1.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />
     <PackageReference Include="MongoDB.Driver" Version="3.8.1" />
     <PackageReference Include="Muflone" Version="10.2.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BrewUp.Shared\BrewUp.Shared.csproj" />
     <ProjectReference Include="..\BrewUp.Payment.SharedKernel\BrewUp.Payment.SharedKernel.csproj" />
   </ItemGroup>
 

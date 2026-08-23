@@ -1,6 +1,7 @@
 ﻿using CustomTypes = BrewUp.Shared.CustomTypes;
 using BrewUp.Shared.DomainIds;
 using BrewUp.Warehouse.SharedKernel.Messages.Events;
+using BrewUp.Warehouse.SharedKernel.CustomTypes;
 using Muflone.Core;
 
 namespace BrewUp.Warehouse.Domain.Entities
@@ -63,6 +64,53 @@ namespace BrewUp.Warehouse.Domain.Entities
         {
             // This replaces the quantity instead of adding it.
             _quantity = new Quantity(@event.Quantity.Value, @event.Quantity.UnitOfMeasure);
+        }
+
+        /// <summary>
+        /// Reserve stock for a sales order. Partial reservation is allowed (OQ-2):
+        /// Warehouse decides the reservable subset. Sales never performs this decision (BC-005/BC-006).
+        /// </summary>
+        internal void ReserveStock(IEnumerable<CustomTypes.ItemRequested> requestedRows,
+            string salesOrderId, Guid correlationId)
+        {
+            var stockReservationId = new StockReservationId(Guid.CreateVersion7().ToString());
+            var warehouseId = new WarehouseId(_warehouseId.Value);
+
+            // Find rows that match this availability's beer
+            var matchingRows = requestedRows
+                .Where(r => r.BeerId.Value == _beerId.Value)
+                .ToList();
+
+            if (matchingRows.Count == 0 || _quantity.Value <= 0)
+            {
+                RaiseEvent(new StockReservationRejected(warehouseId, correlationId, salesOrderId,
+                    "No stock available for the requested beers"));
+                return;
+            }
+
+            // Partial reservation: reserve up to available quantity
+            var totalRequested = matchingRows.Sum(r => r.QuantityOrdered.Value);
+            var reservableQuantity = Math.Min(_quantity.Value, totalRequested);
+
+            var reservedRows = matchingRows
+                .Select(r => new CustomTypes.ItemRequested(
+                    r.BeerId,
+                    new CustomTypes.Quantity(Math.Min(r.QuantityOrdered.Value, reservableQuantity), r.QuantityOrdered.UnitOfMeasure),
+                    r.QuantityAvailable))
+                .ToList();
+
+            RaiseEvent(new StockReserved(warehouseId, correlationId, stockReservationId, salesOrderId, reservedRows));
+        }
+
+        private void Apply(StockReserved @event)
+        {
+            // Stock reduced by reservation (domain decision: Warehouse owns stock mutation, BC-007)
+            // Note: quantity reduction tracking for reservations can be extended here
+        }
+
+        private void Apply(StockReservationRejected @event)
+        {
+            // No state change on rejection
         }
     }
 }

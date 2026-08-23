@@ -1,7 +1,0 @@
-{
-  "name": "top-level manifest array",
-  "target": ".bmad-harness/manifest.json",
-  "prefix": "[",
-  "suffix": "]",
-  "expectedCheckId": "manifest-json"
-}

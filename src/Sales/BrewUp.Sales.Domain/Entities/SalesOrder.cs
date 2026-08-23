@@ -18,6 +18,9 @@ public class SalesOrder : AggregateRoot
     
     private SalesOrderStatus _salesOrderStatus;
     
+    private PaymentAuthorizationReference? _paymentAuthorizationReference;
+    private StockReservationReference? _stockReservationReference;
+    
     protected SalesOrder()
     {}
 
@@ -123,6 +126,29 @@ public class SalesOrder : AggregateRoot
     private void Apply(SalesOrderAccepted @event)
     {
         _salesOrderStatus = SalesOrderStatus.Accepted;
+    }
+
+    internal void ConfirmOrder(PaymentAuthorizationReference paymentAuthorizationReference,
+        StockReservationReference stockReservationReference, Guid correlationId)
+    {
+        // Idempotency guard (FR-009): already confirmed → no-op
+        if (Equals(_salesOrderStatus, SalesOrderStatus.Confirmed))
+            return;
+
+        // Invariant (BC-010): both external decision references must be present
+        if (string.IsNullOrEmpty(paymentAuthorizationReference?.Value) ||
+            string.IsNullOrEmpty(stockReservationReference?.Value))
+            return;
+
+        RaiseEvent(new SalesOrderConfirmed(new SalesOrderId(Id.Value), correlationId,
+            paymentAuthorizationReference, stockReservationReference));
+    }
+
+    private void Apply(SalesOrderConfirmed @event)
+    {
+        _salesOrderStatus = SalesOrderStatus.Confirmed;
+        _paymentAuthorizationReference = @event.PaymentAuthorizationReference;
+        _stockReservationReference = @event.StockReservationReference;
     }
 
     private void Apply(SalesOrderClosed @event)

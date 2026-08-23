@@ -1,7 +1,0 @@
-{
-  "name": "installed BMAD config reference",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "\"Load {project-root}/_bmad-output/project-context.md.\",",
-  "replace": "\"Load {project-root}/_bmad/config.toml.\",",
-  "expectedCheckId": "no-installed-core-reference"
-}

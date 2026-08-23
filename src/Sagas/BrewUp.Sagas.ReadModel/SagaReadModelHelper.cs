@@ -14,6 +14,9 @@ public static class SagaReadModelHelper
         services.AddDomainEventHandler<SagaSalesOrderAvailablityCheckedEventHandler>();
         services.AddDomainEventHandler<SagaSalesOrderPlacedEventHandler>();
         services.AddDomainEventHandler<SagaSalesOrderSuccessfullyCompletedEventHandler>();
+        services.AddDomainEventHandler<SagaRequestsPaymentAuthorizationEventHandler>();
+        services.AddDomainEventHandler<SagaRequestsStockReservationEventHandler>();
+        services.AddDomainEventHandler<SagaSalesOrderReadyToConfirmEventHandler>();
         
         return services;
     }

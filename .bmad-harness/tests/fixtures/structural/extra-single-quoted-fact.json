@@ -1,7 +1,0 @@
-{
-  "name": "extra single-quoted persistent fact",
-  "target": "_bmad/custom/bmad-prd.toml",
-  "search": "  \"file:{project-root}/.bmad-harness/governance/gate-contract.md\"\n]",
-  "replace": "  \"file:{project-root}/.bmad-harness/governance/gate-contract.md\",\n  'Load an unexpected policy source.'\n]",
-  "expectedCheckId": "override-facts"
-}

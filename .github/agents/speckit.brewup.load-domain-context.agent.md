@@ -45,13 +45,25 @@ The output of this command should help the agent avoid:
 Read the following files if they exist:
 
 * `.specify/memory/constitution.md`
-* `specs/001-sales-order-confirmation/domain-carrier.md`
+* `.specify/memory/domain-carriers/brewup-sales-order-confirmation.md`
+* `.specify/memory/architecture/brewup-module-structure.md`
 * `00-discovery/running-scenario.md`
 * `00-discovery/candidate-events.md`
 
-If a file does not exist, report it as missing and continue.
+The domain carrier is the source of truth for this bounded context.
 
-Do not fail because optional files are missing.
+Where the rules restated in this agent and the domain carrier disagree, the domain carrier wins.
+
+If `.specify/memory/domain-carriers/brewup-sales-order-confirmation.md` is missing, stop and report:
+
+```text
+Sales Order domain carrier not found.
+Specification cannot proceed without domain context.
+```
+
+Do not reconstruct the missing carrier from memory, from the feature request, or from generic e-commerce knowledge.
+
+Other listed files are optional. If one is missing, report it and continue.
 
 ## Domain context
 

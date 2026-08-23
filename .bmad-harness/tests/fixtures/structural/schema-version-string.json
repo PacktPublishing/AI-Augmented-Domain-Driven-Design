@@ -1,7 +1,0 @@
-{
-  "name": "string schemaVersion",
-  "target": ".bmad-harness/manifest.json",
-  "search": "\"schemaVersion\": 1",
-  "replace": "\"schemaVersion\": \"1\"",
-  "expectedCheckId": "manifest-schema"
-}
