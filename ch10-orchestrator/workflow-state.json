@@ -1,0 +1,6 @@
+{
+  "workflow_id": "brewup-stock-01",
+  "artifacts": {
+    "raw-evidence": "docs/ch09/run-pack/stock-walkthrough.md"
+  }
+}

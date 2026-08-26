@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BrewUp.Orchestration/BrewUp.Orchestration.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BrewUp.Orchestration.Tests/BrewUp.Orchestration.Tests.csproj" />
+  </Folder>
+</Solution>

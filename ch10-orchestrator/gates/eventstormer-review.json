@@ -1,0 +1,11 @@
+{
+  "gate_id": "eventstormer-review",
+  "decision": "accepted",
+  "effective_artifact": {
+    "kind": "accepted-facts",
+    "path": "docs/ch09/runs/9.2-eventstormer/accepted-facts.md"
+  },
+  "preserves_unresolved": [
+    "ES-17"
+  ]
+}

@@ -63,6 +63,7 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+/ch10-orchestrator/artifacts/generated/
 
 # StyleCop
 StyleCopReport.xml
