@@ -1,25 +1,33 @@
 # Context Mapper 9.5 — Human Decision
 
-Status: **pending human review**.
+**Status:** pending explicit domain-authority confirmation.
 
-Review basis: `raw-output.md`, SHA-256 `567ffe9b06794160ecb53c45a3e452a077c11ed5019deb2dbc409783b308cc43`.
+**Primary review basis:** `raw-output.md`, SHA-256
+`84c779c250b3fb33f71531d240e135d3603cfbc81a2ab330be22f71f794e2c85`.
 
-This file is deliberately not pre-filled with an acceptance claim. The Context Mapper output was prepared as an authoring reference in a session that had already seen evaluator-only material, and no human domain-authority gate has yet reviewed the 12 candidates.
+**Correction review basis:** `correction-01/raw-output.md`, SHA-256
+`d2849bc6b2a9ced704b55cd6fcc2069793cb4914eb04fdecb640d0ac1a70142d`.
 
-## Recommended gate reading
+The primary run returned 18 candidates. Three were referred for evidence or
+authority defects and corrected without modifying the primary record. The body
+contains four unresolved candidates; the primary summary's count of five was a
+run defect and is not the effective count.
 
-The reference evaluation recommends accepting all 12 candidates as traceable modeling material while retaining CM-06 and CM-11 as `unresolved`. Acceptance must not convert a proposed boundary name into a business-approved bounded-context name, assign dispatch authority, merge the two office responsibilities, or introduce implementation structure.
+## Decision proposed for confirmation
 
-## Decisions to record
-
-| Candidates | Human decision | Question to settle |
+| Candidates | Proposed decision | Constraint preserved |
 |---|---|---|
-| CM-01 | pending | Does availability plus hold/release work form one responsibility boundary, and what is its business name? |
-| CM-02 | pending | Does Sales own the full order-decision responsibility described, and what is the boundary called? |
-| CM-03 | pending | Which office role owns payment, and is any direct exchange with Stock established? |
-| CM-04, CM-12 | pending | Who owns dispatch, and is the physical collection edge represented at the right boundary level? |
-| CM-05, CM-10 | pending | Which lab authority owns the failed-batch outcome and what fact crosses the boundary? |
-| CM-06, CM-11 | pending | Which office authority owns failed-batch consequences and what handoff is required? |
-| CM-07, CM-08, CM-09 | pending | Are the Sales/availability exchanges and their directions correctly represented? |
+| CM-01–CM-09, CM-11–CM-15, CM-18 | accepted as modeling material | Names remain proposals; acceptance is not a business naming or implementation decision. |
+| CM-10 | accepted after correction | `QUOTE-01` is removed; Sales remains owner only of the evidenced order request. |
+| CM-16 | accepted after correction | The notification happened once; authority over its required contents remains unknown. |
+| CM-17 | accepted after correction | Only physical Shipping collection is recorded; release, instruction, and dispatch authority remain unknown. |
+| CM-06, CM-08, CM-12, CM-14 | accepted while remaining `unresolved` | Failed-batch resolution, product-code correction, retry, and partial-quantity notification remain open. |
 
-After the gate, replace each `pending` decision with `accepted`, `referred`, or `rejected`, record reviewer/date/notes, and regenerate `accepted-context-map.md` from only the accepted effective candidates.
+The gate must also confirm that no proposed boundary name is business-approved,
+no payment or delivery edge is invented, and no authority is assigned for hold
+duration, partial availability, retry, failed-batch handling, or Shipping beyond
+the evidence.
+
+After explicit confirmation, record reviewer/date/notes here and generate
+`accepted-context-map.md` from the effective 18 candidates, replacing CM-10,
+CM-16, and CM-17 with their corrected versions.
