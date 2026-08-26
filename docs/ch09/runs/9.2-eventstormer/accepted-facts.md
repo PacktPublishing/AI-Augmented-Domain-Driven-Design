@@ -10,9 +10,9 @@ Open questions remain open. Inclusion in this handoff does not change an
 ## Provenance
 
 - Primary output SHA-256: `0f62f5949c7e16065e4872fc84bbd39953ce4566bb0fb7ea7252cb1c0fe4b494`
-- Primary decision SHA-256: `8505719785f440f405642e4faacd05da377cb827a0fef40de4e6cdbc69ec6c44`
+- Primary decision SHA-256: `cde0c28beef6a62add132b2624242c99fdd6c617d632f1efa3bc0be545a5e648`
 - Correction output SHA-256: `61c575ebb660d6a65b186f2e1aa9c957da021ed43f49aa5c269847dbf7d5e78e`
-- Correction decision SHA-256: `ee6e63a6ff08223ad7c2fc9ce9a35a7f033c8ad177276d2ebe71c815f09a6f6b`
+- Correction decision SHA-256: `96bdb9d4ec0e0058b2ef6781123f5f0e94fd6951ee300559d73912510ed26b8f`
 
 ## Candidates
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace BrewUp.Orchestration;
 
@@ -25,18 +26,14 @@ public sealed class DeterministicSpecialistRunner(string repositoryRoot)
         var absolutePath = Path.Combine(_repositoryRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
 
-        var candidate = new ArtifactEnvelope(
-            input.Primary.WorkflowId,
-            stage.Specialist,
-            stage.CandidateKind,
-            relativePath.Replace(Path.DirectorySeparatorChar, '/'),
-            input.Primary.EvidenceRefs,
-            input.Primary.Unresolved,
-            attempt);
-
         var persisted = new
         {
-            candidate,
+            workflow_id = input.Primary.WorkflowId,
+            producer = stage.Specialist,
+            kind = stage.CandidateKind,
+            evidence_refs = input.Primary.EvidenceRefs,
+            unresolved = input.Primary.Unresolved,
+            attempt,
             input = new
             {
                 primary = input.Primary.Path,
@@ -47,7 +44,21 @@ public sealed class DeterministicSpecialistRunner(string repositoryRoot)
             absolutePath,
             JsonSerializer.Serialize(persisted, JsonDefaults.Options),
             cancellationToken).ConfigureAwait(false);
-        return candidate;
+        await using var content = File.OpenRead(absolutePath);
+        var contentSha256 = Convert.ToHexString(
+            await SHA256.HashDataAsync(
+                content,
+                cancellationToken).ConfigureAwait(false))
+            .ToLowerInvariant();
+        return new ArtifactEnvelope(
+            input.Primary.WorkflowId,
+            stage.Specialist,
+            stage.CandidateKind,
+            relativePath.Replace(Path.DirectorySeparatorChar, '/'),
+            input.Primary.EvidenceRefs,
+            input.Primary.Unresolved,
+            attempt,
+            contentSha256);
     }
 
     private void EnsureInputExists(ArtifactEnvelope artifact)

@@ -10,6 +10,7 @@ implementation decision.
 ## Provenance
 
 - Primary output SHA-256: `5abc8b75da79572185f53e06adbc9bdcac27097ec83079c37127613a8bc10813`
+- Human decision SHA-256: `7648837932d0887b7625786a8f5b11b4647a2ee788b444fdf69d3784ed29c984`
 
 ## Candidates
 

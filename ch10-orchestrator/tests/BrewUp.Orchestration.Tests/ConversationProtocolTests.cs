@@ -120,6 +120,40 @@ public sealed class ConversationProtocolTests
         Assert.Equal("BLOCKED: expected sender eventstormer", result.Message);
     }
 
+    [Fact]
+    public void AcceptedArtifactMustBeLinkedToTheCandidateUnderReview()
+    {
+        var awaitingReview = AwaitingReview();
+
+        var result = _protocol.Handle(
+            awaitingReview,
+            Accepted(
+                "gate-1",
+                "candidate-1",
+                ["ES-17"],
+                sourceHashes: [TestFixtures.UnrelatedHash]));
+
+        Assert.False(result.Applied);
+        Assert.Contains("does not cite the candidate under review", result.Message);
+    }
+
+    [Fact]
+    public void AcceptedArtifactMustCarryTheHumanDecisionHash()
+    {
+        var awaitingReview = AwaitingReview();
+
+        var result = _protocol.Handle(
+            awaitingReview,
+            Accepted(
+                "gate-1",
+                "candidate-1",
+                ["ES-17"],
+                decisionHash: null));
+
+        Assert.False(result.Applied);
+        Assert.Contains("human decision hash is missing", result.Message);
+    }
+
     private ProtocolState AwaitingReview()
     {
         var state = _protocol.Start("brewup-stock-01");
@@ -145,12 +179,15 @@ public sealed class ConversationProtocolTests
                 "artifacts/candidate-facts.md",
                 ["OBS-01"],
                 ["ES-17"],
-                attempt));
+                attempt,
+                TestFixtures.CandidateHash));
 
     private static ProtocolMessage Accepted(
         string messageId,
         string causationId,
-        string[] unresolved) => new(
+        string[] unresolved,
+        string[]? sourceHashes = null,
+        string? decisionHash = TestFixtures.DecisionHash) => new(
             messageId,
             "brewup-stock-01",
             causationId,
@@ -164,5 +201,8 @@ public sealed class ConversationProtocolTests
                 "docs/ch09/runs/9.2-eventstormer/accepted-facts.md",
                 ["OBS-01"],
                 unresolved,
-                1));
+                1,
+                TestFixtures.AcceptedHash,
+                sourceHashes ?? [TestFixtures.CandidateHash],
+                decisionHash));
 }

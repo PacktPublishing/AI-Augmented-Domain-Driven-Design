@@ -47,9 +47,9 @@ public sealed class BrewUpOrchestrationLoop
     private readonly ISpecialistRunner _runner;
     private readonly IClock _clock;
     private readonly ConversationProtocol _protocol;
-    private readonly HashSet<string> _processedRunCommands =
-        new(StringComparer.Ordinal);
-    private readonly List<RunTraceEntry> _trace = [];
+    private readonly IWorkflowStore _store;
+    private readonly HashSet<string> _processedRunCommands;
+    private readonly List<RunTraceEntry> _trace;
     private ArtifactEnvelope _currentInput;
 
     public BrewUpOrchestrationLoop(
@@ -57,7 +57,8 @@ public sealed class BrewUpOrchestrationLoop
         IEnumerable<LoopStage> stages,
         ArtifactEnvelope initialInput,
         ISpecialistRunner runner,
-        IClock clock)
+        IClock clock,
+        IWorkflowStore? store = null)
     {
         _stages = stages.ToArray();
         if (_stages.Length == 0)
@@ -74,12 +75,35 @@ public sealed class BrewUpOrchestrationLoop
         _currentInput = initialInput;
         _runner = runner;
         _clock = clock;
+        _store = store ?? NullWorkflowStore.Instance;
         _protocol = new ConversationProtocol(
             _stages.Select(stage => new ProtocolRoute(
                 stage.Specialist,
                 stage.CandidateKind,
                 stage.AcceptedKind)));
-        State = _protocol.Start(workflowId);
+        var snapshot = _store.Load(workflowId);
+        if (snapshot is null)
+        {
+            State = _protocol.Start(workflowId);
+            _processedRunCommands = new(StringComparer.Ordinal);
+            _trace = [];
+            Persist();
+        }
+        else
+        {
+            if (!string.Equals(
+                    snapshot.State.WorkflowId,
+                    workflowId,
+                    StringComparison.Ordinal))
+                throw new InvalidDataException("Snapshot workflow id does not match.");
+
+            State = snapshot.State;
+            _currentInput = snapshot.CurrentInput;
+            _processedRunCommands = new(
+                snapshot.ProcessedRunCommands,
+                StringComparer.Ordinal);
+            _trace = [.. snapshot.Trace];
+        }
     }
 
     public ProtocolState State { get; private set; }
@@ -219,7 +243,14 @@ public sealed class BrewUpOrchestrationLoop
             result.State.Status,
             artifactPath,
             unresolved));
+        Persist();
     }
+
+    private void Persist() => _store.Save(new WorkflowSnapshot(
+        State,
+        _currentInput,
+        [.. _processedRunCommands],
+        [.. _trace]));
 
     private ProtocolResult Blocked(string message) =>
         new(State, false, $"BLOCKED: {message}");

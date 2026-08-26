@@ -140,6 +140,49 @@ public sealed class BrewUpOrchestrationLoopTests
             contextMapperInput.Context.Select(artifact => artifact.Kind));
     }
 
+    [Fact]
+    public async Task PersistedSnapshotResumesWithoutRepeatingTheRunCommand()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            $"brewup-snapshot-{Guid.NewGuid():N}");
+        try
+        {
+            var store = new JsonWorkflowStore(directory);
+            var firstRunner = new RecordingSpecialistRunner();
+            var first = new BrewUpOrchestrationLoop(
+                "brewup-stock-01",
+                TestFixtures.Stages,
+                TestFixtures.RawEvidence,
+                firstRunner,
+                new SteppingClock(),
+                store);
+
+            await first.RunCurrentAsync("run-1");
+
+            var resumedRunner = new RecordingSpecialistRunner();
+            var resumed = new BrewUpOrchestrationLoop(
+                "brewup-stock-01",
+                TestFixtures.Stages,
+                TestFixtures.RawEvidence,
+                resumedRunner,
+                new SteppingClock(),
+                store);
+            var replay = await resumed.RunCurrentAsync("run-1");
+
+            Assert.Equal(ProtocolStatus.AwaitingReview, resumed.State.Status);
+            Assert.Single(resumed.Trace);
+            Assert.False(replay.Applied);
+            Assert.StartsWith("IGNORED", replay.Message);
+            Assert.Empty(resumedRunner.Invocations);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static (BrewUpOrchestrationLoop Loop, RecordingSpecialistRunner Runner)
         CreateLoop()
     {
@@ -167,6 +210,15 @@ public sealed class BrewUpOrchestrationLoopTests
 
 internal static class TestFixtures
 {
+    internal const string CandidateHash =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    internal const string AcceptedHash =
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    internal const string DecisionHash =
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    internal const string UnrelatedHash =
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
     internal static readonly LoopStage[] Stages =
     [
         new("eventstormer", "raw-evidence", "candidate-facts", "accepted-facts"),
@@ -187,7 +239,8 @@ internal static class TestFixtures
         "docs/ch09/run-pack/stock-walkthrough.md",
         ["OBS-01", "OBS-02", "OBS-03"],
         ["ES-17"],
-        0);
+        0,
+        CandidateHash);
 
     internal static ArtifactEnvelope Accepted(string kind) => new(
         "brewup-stock-01",
@@ -196,7 +249,10 @@ internal static class TestFixtures
         $"artifacts/{kind}.md",
         ["OBS-01"],
         ["ES-17"],
-        1);
+        1,
+        AcceptedHash,
+        [CandidateHash],
+        DecisionHash);
 }
 
 internal sealed class RecordingSpecialistRunner : ISpecialistRunner
@@ -219,7 +275,8 @@ internal sealed class RecordingSpecialistRunner : ISpecialistRunner
             $"artifacts/{stage.CandidateKind}-attempt-{attempt}.md",
             input.Primary.EvidenceRefs,
             input.Primary.Unresolved,
-            attempt));
+            attempt,
+            TestFixtures.CandidateHash));
     }
 }
 

@@ -26,6 +26,10 @@ Runtime candidates produced by the deterministic runner are persisted under
 `artifacts/generated/`. That directory is ignored by Git because the files are
 run evidence, not authored source.
 
+Repository-backed workflow snapshots are persisted atomically under
+`artifacts/runs/`. Running the same repository command again loads the completed
+snapshot instead of invoking a recorded specialist a second time.
+
 ## Verify the declared test counts
 
 Run from the repository root:
@@ -40,10 +44,13 @@ dotnet test ch10-orchestrator/tests/BrewUp.Orchestration.Tests \
 dotnet test ch10-orchestrator/tests/BrewUp.Orchestration.Tests \
   --filter FullyQualifiedName~BrewUpOrchestrationLoopTests --nologo
 
+dotnet test ch10-orchestrator/tests/BrewUp.Orchestration.Tests \
+  --filter FullyQualifiedName~Chapter9RepositoryCatalogTests --nologo
+
 dotnet test ch10-orchestrator/BrewUp.Orchestration.slnx --nologo
 ```
 
-The expected counts are respectively 4, 7, 8, and 19 passing tests.
+The expected counts are respectively 4, 9, 9, 3, and 25 passing tests.
 
 ## Exercise the eligibility boundary
 
@@ -75,8 +82,8 @@ FINAL Completed; accepted=4; unresolved=ES-17
 ```
 
 This command proves the orchestration mechanics with deterministic candidate
-generation. It reports explicitly when a repository gate is being simulated.
-It does not claim that a pending human decision has become accepted.
+generation. Its single `ES-17` identifier is an intentionally small fixture;
+it does not claim to replay every unresolved record from Chapter 9.
 
 ## Verify and run against Chapter 9 authority records
 
@@ -86,15 +93,25 @@ Inspect the repository gates without invoking a specialist:
 dotnet run --project ch10-orchestrator/src/BrewUp.Orchestration -- --verify-ch09
 ```
 
-Run the loop only if all four human gates are complete:
+The verifier requires an exact `complete` status, every declared source and
+decision hash, and the effective accepted artifact. It fails closed on missing,
+stale, or mismatched provenance.
+
+Replay the recorded Chapter 9 specialist outputs only if all four human gates
+and their provenance records verify:
 
 ```bash
 dotnet run --project ch10-orchestrator/src/BrewUp.Orchestration -- \
   --run-repository-loop
 ```
 
-The repository-backed command fails closed with exit code `3` while any human
-gate is missing or pending. In the current Packt checkpoint, the Context Mapper
-decision in `docs/ch09/runs/9.5-context-mapper/human-decision.md` is still
-pending, so this command must not reach `Completed` until a human authority
-records the decision.
+The repository-backed command replays the primary and corrected outputs that
+actually produced the four accepted handoffs. EventStormer, Storyteller, and
+Context Mapper each traverse their recorded referral before acceptance. The
+completed snapshot contains four accepted artifacts, fourteen applied
+transitions, and all 40 unresolved identifiers carried by the Chapter 9
+handoffs, including `ES-17`, `CM-06`, `CM-08`, `CM-12`, and `CM-14`.
+
+The command fails closed with exit code `3` while a gate is incomplete or its
+provenance is invalid. A second execution resumes from the persisted snapshot
+and prints the same trace without replaying specialist work.

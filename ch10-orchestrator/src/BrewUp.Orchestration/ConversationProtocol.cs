@@ -7,7 +7,10 @@ public sealed record ArtifactEnvelope(
     string Path,
     string[] EvidenceRefs,
     string[] Unresolved,
-    int Attempt);
+    int Attempt,
+    string ContentSha256,
+    string[]? SourceArtifactSha256 = null,
+    string? HumanDecisionSha256 = null);
 
 public enum ProtocolMessageKind
 {
@@ -155,6 +158,9 @@ public sealed class ConversationProtocol
         if (artifact.EvidenceRefs.Length == 0)
             return Blocked(state, "candidate has no evidence references");
 
+        if (!IsSha256(artifact.ContentSha256))
+            return Blocked(state, "candidate content hash is missing or invalid");
+
         var expectedAttempt = state.Status == ProtocolStatus.CorrectionRequired
             ? (state.Candidate?.Attempt ?? 0) + 1
             : 1;
@@ -208,6 +214,29 @@ public sealed class ConversationProtocol
 
         if (!string.Equals(accepted.WorkflowId, state.WorkflowId, StringComparison.Ordinal))
             return Blocked(state, "accepted artifact workflow id does not match");
+
+        if (!string.Equals(
+                accepted.Producer,
+                "human-reviewer",
+                StringComparison.Ordinal))
+            return Blocked(state, "accepted artifact producer must be human-reviewer");
+
+        if (!IsSha256(accepted.ContentSha256))
+            return Blocked(state, "accepted artifact content hash is missing or invalid");
+
+        if (!IsSha256(accepted.HumanDecisionSha256))
+            return Blocked(state, "accepted artifact human decision hash is missing or invalid");
+
+        if (accepted.SourceArtifactSha256 is not { Length: > 0 } sources ||
+            !sources.Contains(state.Candidate.ContentSha256, StringComparer.Ordinal))
+            return Blocked(
+                state,
+                "accepted artifact does not cite the candidate under review");
+
+        if (accepted.Attempt != state.Candidate.Attempt)
+            return Blocked(
+                state,
+                $"accepted artifact attempt {accepted.Attempt} does not match candidate attempt {state.Candidate.Attempt}");
 
         if (accepted.EvidenceRefs.Length == 0)
             return Blocked(state, "accepted artifact has no evidence references");
@@ -344,4 +373,8 @@ public sealed class ConversationProtocol
 
     private static ProtocolResult Ignored(ProtocolState state, string message) =>
         new(state, false, $"IGNORED: {message}");
+
+    private static bool IsSha256(string? value) =>
+        value is { Length: 64 } && value.All(character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
 }

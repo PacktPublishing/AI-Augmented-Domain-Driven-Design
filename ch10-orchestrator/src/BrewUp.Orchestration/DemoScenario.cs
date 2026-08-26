@@ -21,7 +21,10 @@ public static class DemoScenario
             "docs/ch09/run-pack/stock-walkthrough.md",
             ["OBS-01", "OBS-02", "OBS-03"],
             ["ES-17"],
-            0);
+            0,
+            ArtifactHash.Sha256(
+                repositoryRoot,
+                "docs/ch09/run-pack/stock-walkthrough.md"));
         var loop = new BrewUpOrchestrationLoop(
             WorkflowId,
             Stages,
@@ -33,8 +36,11 @@ public static class DemoScenario
         loop.AcceptCurrent(
             "gate-1",
             Accepted(
+                repositoryRoot,
+                loop.State.Candidate!,
                 "accepted-facts",
-                "docs/ch09/runs/9.2-eventstormer/accepted-facts.md"));
+                "docs/ch09/runs/9.2-eventstormer/accepted-facts.md",
+                "docs/ch09/runs/9.2-eventstormer/human-decision.md"));
 
         await loop.RunCurrentAsync("run-2").ConfigureAwait(false);
         loop.ReferCurrent(
@@ -44,22 +50,31 @@ public static class DemoScenario
         loop.AcceptCurrent(
             "gate-2",
             Accepted(
+                repositoryRoot,
+                loop.State.Candidate!,
                 "accepted-scenarios",
-                "docs/ch09/runs/9.3-storyteller/accepted-scenarios.md"));
+                "docs/ch09/runs/9.3-storyteller/accepted-scenarios.md",
+                "docs/ch09/runs/9.3-storyteller/human-decision.md"));
 
         await loop.RunCurrentAsync("run-3").ConfigureAwait(false);
         loop.AcceptCurrent(
             "gate-3",
             Accepted(
+                repositoryRoot,
+                loop.State.Candidate!,
                 "accepted-behavior",
-                "docs/ch09/runs/9.4-command-event-writer/accepted-behaviour.md"));
+                "docs/ch09/runs/9.4-command-event-writer/accepted-behaviour.md",
+                "docs/ch09/runs/9.4-command-event-writer/human-decision.md"));
 
         await loop.RunCurrentAsync("run-4").ConfigureAwait(false);
         loop.AcceptCurrent(
             "gate-4",
             Accepted(
+                repositoryRoot,
+                loop.State.Candidate!,
                 "accepted-context-map",
-                "docs/ch09/runs/9.5-context-mapper/accepted-context-map.md"));
+                "docs/ch09/runs/9.5-context-mapper/accepted-context-map.md",
+                "docs/ch09/runs/9.5-context-mapper/human-decision.md"));
         return loop;
     }
 
@@ -73,18 +88,37 @@ public static class DemoScenario
             writer.WriteLine($"   {entry.MessageId} <- {entry.CausationId}");
         }
 
+        if (loop.State.PreservedUnresolved.Length == 1)
+        {
+            writer.WriteLine(
+                $"FINAL {loop.State.Status}; " +
+                $"accepted={loop.State.AcceptedArtifacts.Length}; " +
+                $"unresolved={loop.State.PreservedUnresolved[0]}");
+            return;
+        }
+
         writer.WriteLine(
             $"FINAL {loop.State.Status}; " +
             $"accepted={loop.State.AcceptedArtifacts.Length}; " +
-            $"unresolved={string.Join(',', loop.State.PreservedUnresolved)}");
+            $"unresolved_count={loop.State.PreservedUnresolved.Length}");
+        writer.WriteLine(
+            $"UNRESOLVED {string.Join(',', loop.State.PreservedUnresolved)}");
     }
 
-    private static ArtifactEnvelope Accepted(string kind, string path) => new(
-        WorkflowId,
-        "human-reviewer",
-        kind,
-        path,
-        ["OBS-01", "OBS-02", "OBS-03"],
-        ["ES-17"],
-        1);
+    private static ArtifactEnvelope Accepted(
+        string repositoryRoot,
+        ArtifactEnvelope candidate,
+        string kind,
+        string path,
+        string decisionPath) => new(
+            WorkflowId,
+            "human-reviewer",
+            kind,
+            path,
+            ["OBS-01", "OBS-02", "OBS-03"],
+            ["ES-17"],
+            candidate.Attempt,
+            ArtifactHash.Sha256(repositoryRoot, path),
+            [candidate.ContentSha256],
+            ArtifactHash.Sha256(repositoryRoot, decisionPath));
 }

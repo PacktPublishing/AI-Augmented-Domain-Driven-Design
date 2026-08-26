@@ -51,7 +51,14 @@ internal static class Program
                 return 3;
             }
 
-            var loop = await DemoScenario.RunAsync(repositoryRoot).ConfigureAwait(false);
+            var store = new JsonWorkflowStore(Path.Combine(
+                repositoryRoot,
+                "ch10-orchestrator",
+                "artifacts",
+                "runs"));
+            var loop = await RepositoryScenario.RunAsync(
+                repositoryRoot,
+                store).ConfigureAwait(false);
             DemoScenario.PrintTrace(loop, Console.Out);
             return loop.State.Status == ProtocolStatus.Completed ? 0 : 1;
         }
