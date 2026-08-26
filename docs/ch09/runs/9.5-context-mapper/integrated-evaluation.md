@@ -1,8 +1,7 @@
 # Chapter 9 — Integrated Cross-Specialist Evaluation at 9.5
 
 Classification: **completed integrated evaluation against the primary Context
-Mapper run and guided correction**. The experimental chain is reproducible; the
-final human gate remains pending.
+Mapper run, guided correction, and completed human gate**.
 
 ## Reachable carrier concepts
 
@@ -53,10 +52,10 @@ remain open. Product-code correction, failed-batch consequences, notification
 contents, payment effects, and Shipping authorization also remain explicit
 questions. No later artifact turns repetition into policy.
 
-## Checkpoint status
+## Final checkpoint status
 
-The Context Mapper primary run and its correction are experimentally complete.
-The effective chain is coherent enough to recommend for acceptance as modeling
-material, but checkpoint 9.5 is not complete until `human-decision.md` records
-the domain-authority gate and `accepted-context-map.md` is generated from the
-effective 18-candidate set.
+Checkpoint 9.5 is complete. The primary run, guided correction, evaluation,
+human decision, and effective 18-candidate handoff are recorded. Acceptance
+advances the candidates as modeling material while CM-06, CM-08, CM-12, and
+CM-14 remain `unresolved`; it does not approve boundary names or implementation
+structure.
