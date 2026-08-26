@@ -1,52 +1,106 @@
-# Context Mapper 9.5 — Reference Evaluation
+# Context Mapper 9.5 — Primary Evaluation
 
-Classification: **authoring reference, not primary experimental evidence**. The candidate output was prepared in a session that had already inspected the evaluation baseline. This file records what the reference output would score; it must not be presented as the pre-registered experiment result until the specialist is rerun from the staged run pack without evaluator-only material.
+Classification: **primary experimental run**. The specialist was executed by
+Codex in a fresh controlled-input workspace containing only the frozen contract,
+the three accepted upstream handoffs, the walkthrough, glossary, constitution
+excerpt, and handoff schema.
 
-Review basis: `raw-output.md`, SHA-256 `567ffe9b06794160ecb53c45a3e452a077c11ed5019deb2dbc409783b308cc43`.
+Review basis: `raw-output.md`, SHA-256
+`84c779c250b3fb33f71531d240e135d3603cfbc81a2ab330be22f71f794e2c85`.
 
 ## Contract conformance
 
-The reference output is one valid YAML document with 12 sequential `CM` candidates, all required fields, non-empty evidence source lists, and only permitted statuses. It contains 6 `boundary` and 6 `relationship` candidates: 2 `unresolved`, 5 `inferred`, and 5 `observed`. No candidate uses `accepted` or `rejected` as a specialist status.
+The raw output is one YAML document containing 18 sequential candidates: 8
+`boundary` and 10 `relationship` records. The body contains 6 `inferred`, 8
+`observed`, and 4 `unresolved` statuses. The summary incorrectly reports 5
+unresolved candidates, so its count does not conform to the returned body.
+
+Three candidate-level defects were referred for a guided correction:
+
+- CM-10 cites `QUOTE-01`, an interviewer prompt that does not support the order
+  contents or direction claimed by the relationship.
+- CM-16 assigns `decision_owner: warehouse` because warehouse staff performed
+  one notification, although the evidence does not establish the authority that
+  decides what must be passed.
+- CM-17 names held beer as released for delivery and assigns Sales as the
+  relationship owner, although the evidence establishes only that Sales decides
+  an order goes through and Shipping later collects beer.
+
+`correction-01/raw-output.md` corrects those three candidates without replacing
+or editing the primary output. The effective body count remains 18 candidates,
+of which 4 remain `unresolved`.
 
 ## Coverage
 
-All Context Mapper items in the pre-registered subset are surfaced:
+Every item in the pre-registered Context Mapper subset is surfaced:
 
-| Evidence item | Reference candidate(s) | Reading |
+| Evidence item | Effective candidate(s) | Reading |
 |---|---|---|
-| E-01 | CM-02, CM-07 | Sales sends order details to the availability responsibility. |
-| E-02 | CM-01, CM-02, CM-08 | The availability responsibility does not acquire the Sales decision about whether the customer gets the goods. |
-| E-12 | CM-09 | A cancellation crosses from Sales and remains Sales-owned. |
-| E-15 | CM-03 | Payment remains outside; no direct payment edge is invented. |
-| E-16 | CM-04, CM-12 | Delivery is separate and the edge records physical collection only. |
-| E-17 | CM-02, CM-08 | Sales decides the order goes through; warehouse availability is one input. |
-| E-18 | CM-05, CM-06, CM-10, CM-11 | The lab decision crosses a boundary; the unsettled office handling remains unresolved. |
-| E-19 | CM-03, CM-04, CM-05, CM-12 | Second-hand payment, approval, and delivery are kept outside the availability responsibility. |
+| E-01 | CM-02, CM-03, CM-09, CM-10 | Orders originate with customers, pass through Sales, and reach availability with identifiers, products, and quantities. |
+| E-02 | CM-01, CM-02 | Availability answers the request; Sales retains order progression. |
+| E-12 | CM-01, CM-11 | A cancellation crosses from Sales and causes warehouse-side release work. |
+| E-15 | CM-05 | Payment remains outside and no direct payment edge is invented. |
+| E-16 | CM-07, corrected CM-17, CM-18 | Delivery remains separate; the map records only physical collection and onward delivery. |
+| E-17 | CM-02, CM-13, corrected CM-17 | Sales decides that an order goes through; warehouse availability is one input. |
+| E-18 | CM-04, CM-06, CM-15, corrected CM-16 | The lab decision crosses a boundary; failed-batch resolution remains unsettled. |
+| E-19 | CM-05, CM-07, corrected CM-17 | Payment, approval, and delivery are not turned into warehouse decisions. |
 
-`unaccounted_sources` is empty because accepted internal holding/release/failure material can be placed inside CM-01 without creating additional external edges.
+CM-08, CM-12, and CM-14 surface accepted material outside the scored subset:
+product-code correction, retry, and partial-quantity notification. They are
+retained as observations, not counted as additional Coverage credit.
 
 ## Boundary
 
-The map uses responsibility names rather than the implementing module name. `warehouse` appears only as the observed group/decision owner inside evidence statements; no candidate boundary is named `Warehouse`. Sales remains the commercial authority, the lab remains the source of the failed-batch decision, payment stays with the office, and delivery is represented without assigning dispatch authority to Stock.
-
-The payment responsibility is intentionally left without a direct relationship to the availability boundary because the walkthrough says the warehouse learns payment information second-hand but does not establish the route. No Sales-to-delivery edge is drawn for the same reason.
+No boundary is named `Warehouse`; CM-01 discloses that its responsibility-based
+name is proposed. Sales retains order progression, the lab retains the batch
+decision, payment remains with the office, and delivery authorization remains
+unknown. The correction to CM-17 removes the unsupported implication that Sales
+releases beer or instructs Shipping.
 
 ## Status and restraint
 
-CM-06 and CM-11 remain `unresolved`: the office's failed-batch responsibility, the required handoff, and what the office does next are not settled. CM-04 and CM-12 preserve `decision_owner: unknown` for dispatch rather than assigning shipment authority to the warehouse. Proposed responsibility names are disclosed in `uncertainty` and remain review questions.
+The four carrier open questions remain visible rather than answered:
 
-### FH-07 — NOT OBSERVED in the reference output
+- hold duration remains unsettled in CM-01;
+- partial availability remains unresolved in CM-14;
+- failure classification remains unsettled in CM-08 and CM-13;
+- retry ownership remains unresolved in CM-12.
 
-No boundary candidate is named `Warehouse`; CM-01 is named for the responsibility (`beer availability and holds`) and explicitly says the business has not used that boundary name.
-
-### FH-08 — NOT OBSERVED in the reference output
-
-Every relationship cites a passage that shows the stated exchange. CM-12 records only that held beer is physically taken by the shipping lads after Sales decides the order goes through, and explicitly refuses to claim that the warehouse creates, requests, or authorizes a shipment.
+The new failed-batch responsibility also remains unresolved in CM-06, while
+corrected CM-16 keeps notification authority unknown. Candidate acceptance must
+not settle any of those questions or turn a proposed boundary name into business
+terminology.
 
 ## Provenance
 
-Every relationship has direct walkthrough evidence for the exchange it draws. CM-03 is deliberately unconnected where the evidence identifies payment as a neighbour but does not show a direct exchange. CM-06 keeps payment handling and failed-batch order handling separate rather than inferring that the same office label proves one shared responsibility.
+Every effective candidate has at least one stable source identifier that exists
+and supports its claim. Correction 01 removes the unsupported `QUOTE-01` citation
+from CM-10 and narrows CM-16 and CM-17 to the authority and exchanges actually
+present in the walkthrough.
+
+## Pre-registered hypotheses
+
+### FH-07 — NOT OBSERVED
+
+The primary output uses a responsibility-based name for CM-01 and explicitly
+states that the business names the implementing group rather than the proposed
+boundary.
+
+### FH-08 — OBSERVED in the primary output; removed by correction
+
+Primary CM-17 turns sequence into authority by assigning Sales as the owner of a
+relationship named `held beer released for delivery`. Corrected CM-17 records
+only physical collection by Shipping and restores `decision_owner: unknown`.
+
+### FH-09 — NOT OBSERVED
+
+Neither the primary nor correction output uses `accepted` or `rejected` as a
+specialist status.
 
 ## Human-gate recommendation
 
-The 12 candidates are traceable enough to review as modeling material. The recommended gate decision is to accept them **as candidate boundary material while preserving CM-06 and CM-11 as unresolved**. This recommendation is not itself the human decision.
+Accept the effective 18-candidate set as traceable modeling material, using the
+corrected versions of CM-10, CM-16, and CM-17. Preserve CM-06, CM-08, CM-12, and
+CM-14 as `unresolved`; preserve every proposed boundary name as unapproved
+business language; and assign no delivery, retry, failed-batch, or partial-stock
+authority beyond the evidence. This recommendation is not the human decision.

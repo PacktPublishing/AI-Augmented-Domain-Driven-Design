@@ -1,0 +1,95 @@
+run_id: 9.5-context-mapper
+correction_id: correction-01
+classification: guided post-evaluation correction; does not replace the primary raw output
+date_started: "2026-08-26T11:11:34+02:00"
+date_completed: "2026-08-26T11:12:28+02:00"
+repo_commit: 20b72c5153a9a9fbe4da8d7a8841b849bad19fd7
+branch: ch09/9.5-contextmapper
+
+scope:
+  candidate_ids: [CM-10, CM-16, CM-17]
+  other_candidates_may_change: false
+  evaluator_feedback_exposed: true
+  replaces_primary: false
+
+contract:
+  source: docs/ch09/run-pack/contracts/brewup.context-mapper.agent.md
+  staged_as: brewup.context-mapper.agent.md
+  sha256: f6db6ef6a8b5ce669795e54ed7a33659591c1432c548b0408d5965aeab1ce43f
+
+inputs:
+  - source: docs/ch09/runs/9.5-context-mapper/correction-01/correction-request.md
+    staged_as: correction-request.md
+    sha256: 5ce1a993ddab208c037979ddfff0195a2b088b6b29181bf63f52cc4b7a98de9c
+  - source: docs/ch09/run-pack/handoff-schema.md
+    staged_as: handoff-schema.md
+    sha256: 2e2bdcb2cd50a018e9a5efe50c3f38e5761fe3e376c0cac0ed1e7348074b2e8f
+  - source: docs/ch09/runs/9.5-context-mapper/raw-output.md
+    staged_as: primary-raw-output.md
+    sha256: 84c779c250b3fb33f71531d240e135d3603cfbc81a2ab330be22f71f794e2c85
+  - source: docs/ch09/run-pack/stock-walkthrough.md
+    staged_as: stock-walkthrough.md
+    sha256: 29fbf6838fe5bc0f1e843aeecb86fedb4060e97138b2889f20af1bfdd3252be5
+
+scratch_workspace:
+  path: /private/tmp/ch09-9.5-context-mapper-correction01-input.m6oK7O
+  isolation: controlled-input staging; not a claim of technical filesystem isolation
+  recursive_listing:
+    - .
+    - ./brewup.context-mapper.agent.md
+    - ./correction-request.md
+    - ./handoff-schema.md
+    - ./primary-raw-output.md
+    - ./stock-walkthrough.md
+
+runtime:
+  executable: /opt/homebrew/bin/codex
+  version: codex-cli 0.149.1
+  model: gpt-5.6-sol
+  harness: codex exec
+  parameters:
+    sandbox: read-only
+    user_config: ignored
+    repository_rules: ignored
+    ephemeral: true
+    git_repository_check: skipped
+  usage:
+    input_tokens: 96369
+    cached_input_tokens: 72704
+    output_tokens: 1331
+    reasoning_output_tokens: 555
+
+procedure:
+  invocation: >-
+    Open correction-request.md first, then follow
+    brewup.context-mapper.agent.md and handoff-schema.md. Treat the files in this
+    workspace as the complete supplied input. Perform only the guided correction
+    of CM-10, CM-16, and CM-17; do not revise or return any other candidate.
+    Return only the required YAML document.
+  command: >-
+    rtk codex exec --ignore-user-config --ignore-rules --ephemeral
+    --skip-git-repo-check -C
+    /private/tmp/ch09-9.5-context-mapper-correction01-input.m6oK7O
+    -m gpt-5.6-sol -s read-only --color never --json -o
+    /private/tmp/ch09-9.5-context-mapper-correction01-capture.BytaaH/raw-output.md
+    "Open correction-request.md first, then follow
+    brewup.context-mapper.agent.md and handoff-schema.md. Treat the files in this
+    workspace as the complete supplied input. Perform only the guided correction
+    of CM-10, CM-16, and CM-17; do not revise or return any other candidate.
+    Return only the required YAML document." >
+    /private/tmp/ch09-9.5-context-mapper-correction01-capture.BytaaH/runtime-events.jsonl
+  runtime_events:
+    recorded_as: docs/ch09/runs/9.5-context-mapper/correction-01/runtime-events.jsonl
+    sha256: e23963806b9697519c717af6ab0a04e63bdbc46300d244f52be47108f4472653
+  intermediate_command_notes:
+    - The specialist first attempted to read a nonexistent raw-output.md.
+    - It then read primary-raw-output.md and completed the correction normally.
+  exit_code: 0
+  attempt: 1
+  retry_performed: false
+
+output:
+  file: docs/ch09/runs/9.5-context-mapper/correction-01/raw-output.md
+  sha256: d2849bc6b2a9ced704b55cd6fcc2069793cb4914eb04fdecb640d0ac1a70142d
+  edited_after_capture: false
+  truncated: false
