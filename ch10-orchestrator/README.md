@@ -4,11 +4,15 @@ This standalone .NET 10 laboratory implements the executable path used in
 Chapter 10. It coordinates the four Chapter 9 specialists without moving their
 transformations or human domain decisions into the orchestrator.
 
-The laboratory keeps three authorities separate:
+The laboratory keeps four responsibilities separate:
 
-- deterministic code owns routing, eligibility, message validation, state, and trace;
+- deterministic code owns routing, eligibility, protocol state, mechanical
+  alignment, retry/time/tool boundaries, and trace;
 - specialists produce candidate artifacts through `ISpecialistRunner`;
-- a `human-reviewer` message is the only way a candidate becomes accepted input.
+- semantic alignment review may surface divergence but cannot rewrite or accept
+  a candidate;
+- a `human-reviewer` message is the only way candidate domain material becomes
+  accepted input.
 
 ## Structure
 
@@ -20,17 +24,26 @@ ch10-orchestrator/
   gates-empty/
   src/BrewUp.Orchestration/
   tests/BrewUp.Orchestration.Tests/
+
+docs/ch10/
+  orchestrator-contract.md
+  run-pack/
+  runs/10.1-alignment/
 ```
 
 Runtime candidates produced by the deterministic runner are persisted under
-`artifacts/generated/`. That directory is ignored by Git because the files are
-run evidence, not authored source.
+`artifacts/generated/`. That directory is ignored by Git because those files are
+runtime output.
+
+The authored and reviewed evidence for the controlled alignment experiment is
+committed under `docs/ch10/`, following the same inspectable-evidence principle
+used by `docs/ch09/`.
 
 Repository-backed workflow snapshots are persisted atomically under
-`artifacts/runs/`. Running the same repository command again loads the completed
-snapshot instead of invoking a recorded specialist a second time.
+`artifacts/runs/`. Alignment observations are now persisted in the same snapshot
+without becoming protocol messages or domain decisions.
 
-## Verify the declared test counts
+## Verify the original orchestration laboratory
 
 Run from the repository root:
 
@@ -46,11 +59,15 @@ dotnet test ch10-orchestrator/tests/BrewUp.Orchestration.Tests \
 
 dotnet test ch10-orchestrator/tests/BrewUp.Orchestration.Tests \
   --filter FullyQualifiedName~Chapter9RepositoryCatalogTests --nologo
-
-dotnet test ch10-orchestrator/BrewUp.Orchestration.slnx --nologo
 ```
 
-The expected counts are respectively 4, 9, 9, 3, and 25 passing tests.
+The original groups remain respectively 4, 9, 9, and 3 tests.
+
+Run the complete suite after adding the autonomy/alignment tests:
+
+```bash
+dotnet test ch10-orchestrator/BrewUp.Orchestration.slnx --nologo
+```
 
 ## Exercise the eligibility boundary
 
@@ -81,26 +98,11 @@ specialist, and finishes with:
 FINAL Completed; accepted=4; unresolved=ES-17
 ```
 
-This command proves the orchestration mechanics with deterministic candidate
-generation. Its single `ES-17` identifier is an intentionally small fixture;
-it does not claim to replay every unresolved record from Chapter 9.
-
 ## Verify and run against Chapter 9 authority records
-
-Inspect the repository gates without invoking a specialist:
 
 ```bash
 dotnet run --project ch10-orchestrator/src/BrewUp.Orchestration -- --verify-ch09
-```
 
-The verifier requires an exact `complete` status, every declared source and
-decision hash, and the effective accepted artifact. It fails closed on missing,
-stale, or mismatched provenance.
-
-Replay the recorded Chapter 9 specialist outputs only if all four human gates
-and their provenance records verify:
-
-```bash
 dotnet run --project ch10-orchestrator/src/BrewUp.Orchestration -- \
   --run-repository-loop
 ```
@@ -109,9 +111,52 @@ The repository-backed command replays the primary and corrected outputs that
 actually produced the four accepted handoffs. EventStormer, Storyteller, and
 Context Mapper each traverse their recorded referral before acceptance. The
 completed snapshot contains four accepted artifacts, fourteen applied
-transitions, and all 40 unresolved identifiers carried by the Chapter 9
-handoffs, including `ES-17`, `CM-06`, `CM-08`, `CM-12`, and `CM-14`.
+transitions, and all 40 unresolved identifiers carried by the Chapter 9 handoffs.
 
-The command fails closed with exit code `3` while a gate is incomplete or its
-provenance is invalid. A second execution resumes from the persisted snapshot
-and prints the same trace without replaying specialist work.
+## Verify the controlled semantic drift
+
+```bash
+dotnet run --project ch10-orchestrator/src/BrewUp.Orchestration -- \
+  --verify-alignment-run
+```
+
+The command reads the committed Markdown candidates under
+`docs/ch10/runs/10.1-alignment/`.
+
+Attempt 1 must surface:
+
+- a candidate term that is not accepted language;
+- a possible policy inference around `ES-17`.
+
+The reviewer must leave the candidate bytes unchanged.
+
+Attempt 2 must preserve `ES-17` while no longer triggering those configured drift
+checks.
+
+## Operational autonomy
+
+`AutonomyPolicy` bounds:
+
+- output kind;
+- accessible evidence kinds;
+- whether new candidate terms may be proposed;
+- correction attempts;
+- timeout;
+- tool allow-list.
+
+Failure does not grant additional authority. Retry exhaustion returns an explicit
+stop result, and a retry receives the same tool boundary as the first attempt.
+
+## What the complete laboratory demonstrates
+
+```text
+accepted evidence
+  -> bounded specialist transformation
+  -> deterministic alignment guard
+  -> semantic divergence observation
+  -> human gate
+  -> accepted material or local correction
+```
+
+The orchestrator makes coordination more automatic without making authority less
+explicit.

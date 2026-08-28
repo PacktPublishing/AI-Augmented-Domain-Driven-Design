@@ -6,7 +6,8 @@ public sealed record WorkflowSnapshot(
     ProtocolState State,
     ArtifactEnvelope CurrentInput,
     string[] ProcessedRunCommands,
-    RunTraceEntry[] Trace);
+    RunTraceEntry[] Trace,
+    AlignmentTraceEntry[]? AlignmentTrace = null);
 
 public interface IWorkflowStore
 {
@@ -42,20 +43,31 @@ public sealed class JsonWorkflowStore(string directory) : IWorkflowStore
         return JsonSerializer.Deserialize<WorkflowSnapshot>(
             File.ReadAllText(path),
             JsonDefaults.Options)
-            ?? throw new InvalidDataException($"Snapshot {path} is empty.");
+            ?? throw new InvalidDataException(
+                $"Snapshot {path} is empty.");
     }
 
     public void Save(WorkflowSnapshot snapshot)
     {
         Directory.CreateDirectory(_directory);
         var path = SnapshotPath(snapshot.State.WorkflowId);
-        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        var temporaryPath =
+            $"{path}.{Guid.NewGuid():N}.tmp";
+
         File.WriteAllText(
             temporaryPath,
-            JsonSerializer.Serialize(snapshot, JsonDefaults.Options));
-        File.Move(temporaryPath, path, overwrite: true);
+            JsonSerializer.Serialize(
+                snapshot,
+                JsonDefaults.Options));
+
+        File.Move(
+            temporaryPath,
+            path,
+            overwrite: true);
     }
 
     private string SnapshotPath(string workflowId) =>
-        Path.Combine(_directory, $"{workflowId}.json");
+        Path.Combine(
+            _directory,
+            $"{workflowId}.json");
 }
