@@ -4,7 +4,8 @@ public sealed record WorkflowSnapshot(
     ProtocolState State,
     ArtifactEnvelope CurrentInput,
     string[] ProcessedRunCommands,
-    RunTraceEntry[] Trace);
+    RunTraceEntry[] Trace,
+    AlignmentTraceEntry[]? AlignmentTrace = null);
 
 public interface IWorkflowStore
 {

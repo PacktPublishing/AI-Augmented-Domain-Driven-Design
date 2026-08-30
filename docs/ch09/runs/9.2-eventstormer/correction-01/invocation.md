@@ -1,1 +1,0 @@
-Open correction-request.md first, then follow brewup.eventstormer.agent.md and handoff-schema.md. Treat the files in this workspace as the complete supplied input. Perform only the guided correction of ES-24 and ES-29; do not revise or return any other candidate. Return only the required YAML document.

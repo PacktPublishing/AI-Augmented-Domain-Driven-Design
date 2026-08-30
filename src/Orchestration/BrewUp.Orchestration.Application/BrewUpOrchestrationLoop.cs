@@ -8,7 +8,12 @@ public sealed record LoopStage(
 
 public sealed record SpecialistInput(
     ArtifactEnvelope Primary,
-    ArtifactEnvelope[] Context);
+    ArtifactEnvelope[] Context,
+    string[]? AllowedTools = null)
+{
+    public IReadOnlyList<string> Tools =>
+        AllowedTools ?? [];
+}
 
 public interface ISpecialistRunner
 {
@@ -38,7 +43,8 @@ public sealed record RunTraceEntry(
     string Event,
     ProtocolStatus Status,
     string? ArtifactPath,
-    string[] Unresolved);
+    string[] Unresolved,
+    string? Reason = null);
 
 public sealed class BrewUpOrchestrationLoop
 {
@@ -48,8 +54,11 @@ public sealed class BrewUpOrchestrationLoop
     private readonly IClock _clock;
     private readonly ConversationProtocol _protocol;
     private readonly IWorkflowStore _store;
+    private readonly GovernanceCatalog? _governance;
     private readonly HashSet<string> _processedRunCommands;
     private readonly List<RunTraceEntry> _trace;
+    private readonly List<AlignmentTraceEntry> _alignmentTrace;
+
     private ArtifactEnvelope _currentInput;
 
     public BrewUpOrchestrationLoop(
@@ -58,13 +67,17 @@ public sealed class BrewUpOrchestrationLoop
         ArtifactEnvelope initialInput,
         ISpecialistRunner runner,
         IClock clock,
-        IWorkflowStore? store = null)
+        IWorkflowStore? store = null,
+        GovernanceCatalog? governance = null)
     {
         _stages = stages.ToArray();
+
         if (_stages.Length == 0)
+        {
             throw new ArgumentException(
                 "At least one stage is required.",
                 nameof(stages));
+        }
 
         if (!string.Equals(
                 workflowId,
@@ -81,6 +94,7 @@ public sealed class BrewUpOrchestrationLoop
         _runner = runner;
         _clock = clock;
         _store = store ?? NullWorkflowStore.Instance;
+        _governance = governance;
 
         _protocol = new ConversationProtocol(
             _stages.Select(
@@ -94,8 +108,10 @@ public sealed class BrewUpOrchestrationLoop
         if (snapshot is null)
         {
             State = _protocol.Start(workflowId);
-            _processedRunCommands = new(StringComparer.Ordinal);
+            _processedRunCommands =
+                new(StringComparer.Ordinal);
             _trace = [];
+            _alignmentTrace = [];
             Persist();
         }
         else
@@ -111,10 +127,17 @@ public sealed class BrewUpOrchestrationLoop
 
             State = snapshot.State;
             _currentInput = snapshot.CurrentInput;
+
             _processedRunCommands = new(
                 snapshot.ProcessedRunCommands,
                 StringComparer.Ordinal);
+
             _trace = [.. snapshot.Trace];
+
+            _alignmentTrace =
+                snapshot.AlignmentTrace is null
+                    ? []
+                    : [.. snapshot.AlignmentTrace];
         }
     }
 
@@ -122,15 +145,21 @@ public sealed class BrewUpOrchestrationLoop
 
     public IReadOnlyList<RunTraceEntry> Trace => _trace;
 
-    public LoopStage CurrentStage => _stages[State.StageIndex];
+    public IReadOnlyList<AlignmentTraceEntry>
+        AlignmentTrace => _alignmentTrace;
+
+    public LoopStage CurrentStage =>
+        _stages[State.StageIndex];
 
     public async Task<ProtocolResult> RunCurrentAsync(
         string commandId,
         CancellationToken cancellationToken = default)
     {
         if (_processedRunCommands.Contains(commandId))
+        {
             return Ignored(
                 $"run command {commandId} was already applied");
+        }
 
         if (State.Status is not (
                 ProtocolStatus.Running or
@@ -164,12 +193,109 @@ public sealed class BrewUpOrchestrationLoop
                     .Concat(State.AcceptedArtifacts[..^1])
                     .ToArray();
 
-        var candidate = await _runner.RunAsync(
-            stage,
-            new SpecialistInput(_currentInput, context),
-            attempt,
-            cancellationToken)
-            .ConfigureAwait(false);
+        SpecialistGovernance? governedStage = null;
+        string[] allowedTools = [];
+
+        if (_governance is not null &&
+            _governance.TryGet(
+                stage.Specialist,
+                out var configuredGovernance))
+        {
+            GovernanceCatalog.ValidateStage(
+                stage,
+                configuredGovernance);
+
+            governedStage = configuredGovernance;
+
+            allowedTools =
+                _governance.ResolveTools(
+                    configuredGovernance);
+        }
+
+        var input = new SpecialistInput(
+            _currentInput,
+            context,
+            allowedTools);
+
+        if (governedStage is not null)
+        {
+            var disallowedEvidenceKinds =
+                _governance!.FindDisallowedEvidenceKinds(
+                    input,
+                    governedStage);
+
+            if (disallowedEvidenceKinds.Length > 0)
+            {
+                return Blocked(
+                    "autonomy policy forbids evidence kinds: " +
+                    string.Join(
+                        ", ",
+                        disallowedEvidenceKinds));
+            }
+        }
+
+        ArtifactEnvelope candidate;
+
+        if (governedStage is null)
+        {
+            candidate = await _runner.RunAsync(
+                stage,
+                input,
+                attempt,
+                cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            var execution =
+                await BoundedSpecialistExecutor.RunAsync(
+                    _runner,
+                    stage,
+                    input,
+                    governedStage.Policy,
+                    attempt,
+                    cancellationToken)
+                    .ConfigureAwait(false);
+
+            if (execution.Stopped)
+            {
+                _processedRunCommands.Add(commandId);
+
+                return ApplyExecutionStop(
+                    commandId,
+                    stage,
+                    execution);
+            }
+
+            candidate = execution.Candidate
+                ?? throw new InvalidDataException(
+                    "A successful specialist execution " +
+                    "did not return a candidate.");
+
+            var alignment =
+                _governance!.BuildAlignmentContext(
+                    governedStage,
+                    State);
+
+            var issues = AlignmentGuard.Check(
+                candidate,
+                candidate.AlignmentMetadata
+                    ?? CandidateAlignmentMetadata.Empty,
+                stage,
+                governedStage.Policy,
+                alignment);
+
+            if (issues.Length > 0)
+            {
+                _processedRunCommands.Add(commandId);
+
+                return ApplyMechanicalViolation(
+                    commandId,
+                    stage,
+                    candidate,
+                    issues);
+            }
+        }
 
         var message = new ProtocolMessage(
             MessageId: $"{commandId}-candidate",
@@ -180,7 +306,9 @@ public sealed class BrewUpOrchestrationLoop
             Recipient: "orchestrator",
             Artifact: candidate);
 
-        var result = _protocol.Handle(State, message);
+        var result = _protocol.Handle(
+            State,
+            message);
 
         if (!result.Applied)
             return result;
@@ -201,15 +329,20 @@ public sealed class BrewUpOrchestrationLoop
         ArtifactEnvelope acceptedArtifact)
     {
         var stage = CurrentStage;
+
         var message = HumanGate(
             messageId,
             ProtocolMessageKind.GateAccepted,
             acceptedArtifact);
-        var result = _protocol.Handle(State, message);
+
+        var result = _protocol.Handle(
+            State,
+            message);
 
         if (result.Applied)
         {
             _currentInput = acceptedArtifact;
+
             Apply(
                 result,
                 message,
@@ -225,11 +358,15 @@ public sealed class BrewUpOrchestrationLoop
         string reason)
     {
         var stage = CurrentStage;
+
         var message = HumanGate(
             messageId,
             ProtocolMessageKind.GateReferred,
             reason: reason);
-        var result = _protocol.Handle(State, message);
+
+        var result = _protocol.Handle(
+            State,
+            message);
 
         if (result.Applied)
         {
@@ -248,11 +385,15 @@ public sealed class BrewUpOrchestrationLoop
         string reason)
     {
         var stage = CurrentStage;
+
         var message = HumanGate(
             messageId,
             ProtocolMessageKind.GateRejected,
             reason: reason);
-        var result = _protocol.Handle(State, message);
+
+        var result = _protocol.Handle(
+            State,
+            message);
 
         if (result.Applied)
         {
@@ -261,6 +402,125 @@ public sealed class BrewUpOrchestrationLoop
                 message,
                 stage.Specialist,
                 "gate-rejected");
+        }
+
+        return result;
+    }
+
+    public void RecordAlignmentAssessment(
+        string messageId,
+        SemanticDivergence[] divergences)
+    {
+        if (State.Status != ProtocolStatus.AwaitingReview ||
+            State.Candidate is null)
+        {
+            throw new InvalidOperationException(
+                "Alignment assessment requires " +
+                "a candidate awaiting review.");
+        }
+
+        if (_alignmentTrace.Any(
+                entry =>
+                    string.Equals(
+                        entry.MessageId,
+                        messageId,
+                        StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _alignmentTrace.Add(
+            new AlignmentTraceEntry(
+                MessageId: messageId,
+                Attempt: State.Candidate.Attempt,
+                CandidateSha256:
+                    State.Candidate.ContentSha256,
+                Divergences: divergences));
+
+        Persist();
+    }
+
+    private ProtocolResult ApplyMechanicalViolation(
+        string commandId,
+        LoopStage stage,
+        ArtifactEnvelope candidate,
+        AlignmentIssue[] issues)
+    {
+        var reason = string.Join(
+            "; ",
+            issues.Select(
+                issue =>
+                    $"{issue.Code}: {issue.Detail}"));
+
+        var message = new ProtocolMessage(
+            MessageId:
+                $"{commandId}-mechanical-violation",
+            WorkflowId:
+                State.WorkflowId,
+            CausationId:
+                State.LastMessageId,
+            Kind:
+                ProtocolMessageKind.MechanicalViolationDetected,
+            Sender:
+                "alignment-guard",
+            Recipient:
+                "orchestrator",
+            Artifact:
+                candidate,
+            Reason:
+                reason);
+
+        var result = _protocol.Handle(
+            State,
+            message);
+
+        if (result.Applied)
+        {
+            Apply(
+                result,
+                message,
+                stage.Specialist,
+                "mechanical-violation");
+        }
+
+        return result;
+    }
+
+    private ProtocolResult ApplyExecutionStop(
+        string commandId,
+        LoopStage stage,
+        SpecialistExecutionResult execution)
+    {
+        var reason =
+            $"{execution.StopCode}: {execution.StopReason}";
+
+        var message = new ProtocolMessage(
+            MessageId:
+                $"{commandId}-execution-limit",
+            WorkflowId:
+                State.WorkflowId,
+            CausationId:
+                State.LastMessageId,
+            Kind:
+                ProtocolMessageKind.ExecutionLimitReached,
+            Sender:
+                "execution-policy",
+            Recipient:
+                "orchestrator",
+            Reason:
+                reason);
+
+        var result = _protocol.Handle(
+            State,
+            message);
+
+        if (result.Applied)
+        {
+            Apply(
+                result,
+                message,
+                stage.Specialist,
+                "execution-limit-reached");
         }
 
         return result;
@@ -307,7 +567,8 @@ public sealed class BrewUpOrchestrationLoop
                 eventName,
                 result.State.Status,
                 artifactPath,
-                unresolved));
+                unresolved,
+                message.Reason));
 
         Persist();
     }
@@ -318,11 +579,20 @@ public sealed class BrewUpOrchestrationLoop
                 State,
                 _currentInput,
                 [.. _processedRunCommands],
-                [.. _trace]));
+                [.. _trace],
+                [.. _alignmentTrace]));
 
-    private ProtocolResult Blocked(string message) =>
-        new(State, false, $"BLOCKED: {message}");
+    private ProtocolResult Blocked(
+        string message) =>
+        new(
+            State,
+            false,
+            $"BLOCKED: {message}");
 
-    private ProtocolResult Ignored(string message) =>
-        new(State, false, $"IGNORED: {message}");
+    private ProtocolResult Ignored(
+        string message) =>
+        new(
+            State,
+            false,
+            $"IGNORED: {message}");
 }

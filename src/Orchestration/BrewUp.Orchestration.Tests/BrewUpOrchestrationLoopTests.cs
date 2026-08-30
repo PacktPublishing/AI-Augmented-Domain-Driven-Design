@@ -241,16 +241,20 @@ internal static class TestFixtures
         0,
         CandidateHash);
 
-    internal static ArtifactEnvelope Accepted(string kind) => new(
+    internal static ArtifactEnvelope Accepted(
+        string kind,
+        int attempt = 1,
+        string sourceHash = CandidateHash,
+        string[]? evidence = null) => new(
         "brewup-stock-01",
         "human-reviewer",
         kind,
         $"artifacts/{kind}.md",
-        ["OBS-01"],
+        evidence ?? ["OBS-01"],
         ["ES-17"],
-        1,
+        attempt,
         AcceptedHash,
-        [CandidateHash],
+        [sourceHash],
         DecisionHash);
 }
 
