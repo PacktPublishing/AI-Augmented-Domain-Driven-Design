@@ -22,6 +22,11 @@
     <Project Path="MasterData/BrewUp.MasterData.SharedKernel/BrewUp.MasterData.SharedKernel.csproj" />
     <Project Path="MasterData/BrewUp.MasterData.Tests/BrewUp.MasterData.Tests.csproj" />
   </Folder>
+  <Folder Name="/50 Modules/Orchestration/">
+    <Project Path="Orchestration/BrewUp.Orchestration.Application/BrewUp.Orchestration.Application.csproj" />
+    <Project Path="Orchestration/BrewUp.Orchestration.Infrastructure/BrewUp.Orchestration.Infrastructure.csproj" />
+    <Project Path="Orchestration/BrewUp.Orchestration.Tests/BrewUp.Orchestration.Tests.csproj" />
+  </Folder>
   <Folder Name="/50 Modules/Payment/">
     <Project Path="Payment/BrewUp.Payment.Domain/BrewUp.Payment.Domain.csproj" />
     <Project Path="Payment/BrewUp.Payment.Facade/BrewUp.Payment.Facade.csproj" />
