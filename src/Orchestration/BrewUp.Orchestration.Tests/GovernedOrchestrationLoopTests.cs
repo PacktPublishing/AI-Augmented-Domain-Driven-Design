@@ -13,7 +13,10 @@ public sealed class GovernedOrchestrationLoopTests
 
         var loop = CreateLoop(
             runner,
-            StorytellerGovernance());
+            new GovernanceCatalog(
+            [
+                StorytellerGovernance()
+            ]));
 
         await loop.RunCurrentAsync("run-1");
 
@@ -125,7 +128,10 @@ public sealed class GovernedOrchestrationLoopTests
 
         var loop = CreateLoop(
             runner,
-            StorytellerGovernance());
+            new GovernanceCatalog(
+            [
+                StorytellerGovernance()
+            ]));
 
         await loop.RunCurrentAsync("run-1");
 
@@ -182,14 +188,17 @@ public sealed class GovernedOrchestrationLoopTests
         var runner = new TimeoutRunner();
 
         GovernanceCatalog governance =
-            StorytellerGovernance(
-                policy =>
-                    policy with
-                    {
-                        Timeout =
-                            TimeSpan.FromMilliseconds(
-                                20)
-                    });
+            new GovernanceCatalog(
+            [
+                StorytellerGovernance(
+                    policy =>
+                        policy with
+                        {
+                            Timeout =
+                                TimeSpan.FromMilliseconds(
+                                    20)
+                        })
+            ]);
 
         var loop = CreateLoop(
             runner,
@@ -329,10 +338,7 @@ public sealed class GovernedOrchestrationLoopTests
             };
         }
 
-        return new GovernanceCatalog(
-        [
-            specialist
-        ]);
+        return specialist;
     }
 
     private static string FindRepositoryRoot()
