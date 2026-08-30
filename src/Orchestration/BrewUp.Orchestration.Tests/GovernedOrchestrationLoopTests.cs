@@ -184,7 +184,7 @@ public sealed class GovernedOrchestrationLoopTests
     [Fact]
     public async Task TimeoutStopsWorkflowWithoutChangingAuthority()
     {
-        var root = FindRepositoryRoot();
+        FindRepositoryRoot();
         var runner = new TimeoutRunner();
 
         GovernanceCatalog governance =
