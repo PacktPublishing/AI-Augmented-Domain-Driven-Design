@@ -3,10 +3,10 @@ using BrewUp.Orchestration.Application;
 namespace BrewUp.Orchestration.Infrastructure;
 
 public sealed class RecordedSpecialistRunner(
-    IReadOnlyList<Chapter9StageRecord> records)
+    IReadOnlyList<StageRecord> records)
     : ISpecialistRunner
 {
-    private readonly IReadOnlyDictionary<string, Chapter9StageRecord> _records =
+    private readonly IReadOnlyDictionary<string, StageRecord> _records =
         records.ToDictionary(record => record.Specialist, StringComparer.Ordinal);
 
     public Task<ArtifactEnvelope> RunAsync(

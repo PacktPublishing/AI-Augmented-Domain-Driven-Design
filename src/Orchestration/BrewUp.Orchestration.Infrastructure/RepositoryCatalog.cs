@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace BrewUp.Orchestration.Infrastructure;
 
-public sealed record Chapter9StageRecord(
+public sealed record StageRecord(
     string Specialist,
     string CandidateKind,
     string AcceptedKind,
@@ -16,7 +16,7 @@ public sealed record Chapter9StageRecord(
     string[] EvidenceRefs,
     string[] Unresolved);
 
-public sealed class Chapter9RepositoryCatalog
+public sealed class RepositoryCatalog
 {
     private static readonly StageDefinition[] Definitions =
     [
@@ -75,17 +75,17 @@ public sealed class Chapter9RepositoryCatalog
             ])
     ];
 
-    private Chapter9RepositoryCatalog(IReadOnlyList<Chapter9StageRecord> stages)
+    private RepositoryCatalog(IReadOnlyList<StageRecord> stages)
     {
         Stages = stages;
     }
 
-    public IReadOnlyList<Chapter9StageRecord> Stages { get; }
+    public IReadOnlyList<StageRecord> Stages { get; }
 
-    public static Chapter9RepositoryCatalog Load(string repositoryRoot) =>
+    public static RepositoryCatalog Load(string repositoryRoot) =>
         new(Definitions.Select(definition => Load(repositoryRoot, definition)).ToArray());
 
-    internal static IReadOnlyList<(string Specialist, Chapter9StageRecord? Record, string? Error)>
+    internal static IReadOnlyList<(string Specialist, StageRecord? Record, string? Error)>
         Verify(string repositoryRoot) => Definitions
             .Select(definition =>
             {
@@ -96,12 +96,12 @@ public sealed class Chapter9RepositoryCatalog
                 catch (Exception exception) when (
                     exception is IOException or InvalidDataException)
                 {
-                    return (definition.Specialist, (Chapter9StageRecord?)null, exception.Message);
+                    return (definition.Specialist, (StageRecord?)null, exception.Message);
                 }
             })
             .ToArray();
 
-    private static Chapter9StageRecord Load(
+    private static StageRecord Load(
         string repositoryRoot,
         StageDefinition definition)
     {
@@ -139,7 +139,7 @@ public sealed class Chapter9RepositoryCatalog
             throw new InvalidDataException(
                 $"{definition.Specialist} accepted artifact has no evidence references");
 
-        return new Chapter9StageRecord(
+        return new StageRecord(
             definition.Specialist,
             definition.CandidateKind,
             definition.AcceptedKind,

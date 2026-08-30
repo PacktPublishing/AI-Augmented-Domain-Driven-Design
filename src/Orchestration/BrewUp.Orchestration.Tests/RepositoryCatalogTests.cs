@@ -3,12 +3,12 @@ using BrewUp.Orchestration.Infrastructure;
 
 namespace BrewUp.Orchestration.Tests;
 
-public sealed class Chapter9RepositoryCatalogTests
+public sealed class RepositoryCatalogTests
 {
     [Fact]
     public void LoadsVerifiedStageRecordsAndTheirRealUnresolvedIdentifiers()
     {
-        var catalog = Chapter9RepositoryCatalog.Load(FindRepositoryRoot());
+        var catalog = RepositoryCatalog.Load(FindRepositoryRoot());
 
         Assert.Equal(4, catalog.Stages.Count);
         Assert.Equal(11, catalog.Stages[0].Unresolved.Length);
@@ -83,7 +83,7 @@ public sealed class Chapter9RepositoryCatalogTests
                     "**Status:** incomplete",
                     StringComparison.Ordinal));
 
-            var checks = Chapter9GateVerifier.Verify(temporaryRoot);
+            var checks = GateVerifier.Verify(temporaryRoot);
 
             var eventStormer = Assert.Single(
                 checks,
