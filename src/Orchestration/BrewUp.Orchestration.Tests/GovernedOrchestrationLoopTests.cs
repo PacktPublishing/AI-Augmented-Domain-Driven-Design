@@ -181,7 +181,7 @@ public sealed class GovernedOrchestrationLoopTests
         var root = FindRepositoryRoot();
         var runner = new TimeoutRunner();
 
-        var governance =
+        GovernanceCatalog governance =
             StorytellerGovernance(
                 policy =>
                     policy with
@@ -312,7 +312,7 @@ public sealed class GovernedOrchestrationLoopTests
             new SteppingClock(),
             governance: governance);
 
-    private static GovernanceCatalog StorytellerGovernance(
+    private static SpecialistGovernance StorytellerGovernance(
         Func<AutonomyPolicy, AutonomyPolicy>? changePolicy = null)
     {
         var specialist =
