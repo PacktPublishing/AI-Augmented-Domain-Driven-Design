@@ -83,7 +83,7 @@ public sealed class RepositoryCatalogTests
                     "**Status:** incomplete",
                     StringComparison.Ordinal));
 
-            var checks = Chapter9GateVerifier.Verify(temporaryRoot);
+            var checks = GateVerifier.Verify(temporaryRoot);
 
             var eventStormer = Assert.Single(
                 checks,

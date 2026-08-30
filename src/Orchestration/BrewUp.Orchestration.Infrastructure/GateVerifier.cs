@@ -1,24 +1,24 @@
 namespace BrewUp.Orchestration.Infrastructure;
 
-public sealed record Chapter9GateCheck(
+public sealed record GateCheck(
     string Stage,
     bool Accepted,
     string Message,
     string DecisionPath,
     string ArtifactPath);
 
-public static class Chapter9GateVerifier
+public static class GateVerifier
 {
-    public static IReadOnlyList<Chapter9GateCheck> Verify(string repositoryRoot) =>
+    public static IReadOnlyList<GateCheck> Verify(string repositoryRoot) =>
         RepositoryCatalog.Verify(repositoryRoot)
             .Select(result => result.Record is { } record
-                ? new Chapter9GateCheck(
+                ? new GateCheck(
                     result.Specialist,
                     true,
                     "complete human gate, effective artifact, and provenance hashes verified",
                     record.HumanDecisionPath,
                     record.AcceptedArtifactPath)
-                : new Chapter9GateCheck(
+                : new GateCheck(
                     result.Specialist,
                     false,
                     result.Error ?? "repository gate validation failed",
