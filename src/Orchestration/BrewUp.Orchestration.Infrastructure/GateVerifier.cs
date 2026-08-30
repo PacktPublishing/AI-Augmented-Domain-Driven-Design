@@ -10,7 +10,7 @@ public sealed record Chapter9GateCheck(
 public static class Chapter9GateVerifier
 {
     public static IReadOnlyList<Chapter9GateCheck> Verify(string repositoryRoot) =>
-        Chapter9RepositoryCatalog.Verify(repositoryRoot)
+        RepositoryCatalog.Verify(repositoryRoot)
             .Select(result => result.Record is { } record
                 ? new Chapter9GateCheck(
                     result.Specialist,

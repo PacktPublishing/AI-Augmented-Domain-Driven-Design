@@ -11,7 +11,7 @@ public static class RepositoryScenario
         IWorkflowStore store,
         CancellationToken cancellationToken = default)
     {
-        var catalog = Chapter9RepositoryCatalog.Load(repositoryRoot);
+        var catalog = RepositoryCatalog.Load(repositoryRoot);
         var stages = catalog.Stages
             .Select((record, index) => new LoopStage(
                 record.Specialist,
