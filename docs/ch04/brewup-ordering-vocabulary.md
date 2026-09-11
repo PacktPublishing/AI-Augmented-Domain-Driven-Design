@@ -14,7 +14,7 @@ Authorization does not imply that the payment has been completed or that BrewUp 
 
 ## Stock reserved
 
-A domain event raised by the warehouse responsibility when the inventory required for the order has been successfully reserved.
+A domain event raised by the warehouse responsibility when the stock required for the order has been successfully reserved.
 
 It does not imply that the sales order has already been confirmed.
 
@@ -24,8 +24,8 @@ A domain event raised when BrewUp commits to fulfilling the order after the requ
 
 ## Vocabulary exclusions
 
-- Do not use "Order received" as a synonym for "Order submitted".
-- Do not use "Payment completed" when the domain fact is only authorization.
-- Do not use "Inventory allocated" as a synonym for "Stock reserved" unless the warehouse domain explicitly adopts that term.
-- Do not use "Order approved" as a replacement for "Order confirmed".
-- Do not treat payment authorization as sufficient evidence that the order has been confirmed.
+- Do not use "Order received" as a synonym for "Order submitted". Receiving is BrewUp acknowledging the request; submitting is the customer sending it.
+- Do not use "Payment completed" when the domain fact is only authorization. Authorization reserves the funds; completion moves them.
+- Do not use "Inventory allocated" as a synonym for "Stock reserved" unless the warehouse domain explicitly adopts that term. Two names for one fact hide the boundary.
+- Do not use "Order approved" as a replacement for "Order confirmed". Approval is an internal check; confirmation is the commitment made to the customer.
+- Do not treat payment authorization as sufficient evidence that the order has been confirmed. Authorization is one input to that decision, not the decision.
