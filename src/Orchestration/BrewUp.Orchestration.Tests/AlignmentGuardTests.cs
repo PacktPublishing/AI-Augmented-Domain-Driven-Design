@@ -1,4 +1,5 @@
 using BrewUp.Orchestration.Application;
+using Xunit;
 
 namespace BrewUp.Orchestration.Tests;
 
@@ -137,6 +138,48 @@ public sealed class AlignmentGuardTests
             issue =>
                 issue.Code ==
                 "prohibited-decision");
+    }
+    
+    [Fact]
+    public void NewTermIsRejectedWhenPolicyForbidsIt()
+    {
+        var candidate = Candidate(
+            terms: ["reserve"]);
+
+        var issues = AlignmentGuard.Check(
+            candidate,
+            candidate.AlignmentMetadata!,
+            StorytellerStage,
+            Governance.Policy with
+            {
+                MayIntroduceNewTerms = false
+            },
+            Alignment);
+
+        Assert.Contains(
+            issues,
+            issue => issue.Code == "unapproved-term");
+    }
+
+    [Fact]
+    public void NewTermPassesMechanicalCheckWhenPolicyAllowsIt()
+    {
+        var candidate = Candidate(
+            terms: ["reserve"]);
+
+        var issues = AlignmentGuard.Check(
+            candidate,
+            candidate.AlignmentMetadata!,
+            StorytellerStage,
+            Governance.Policy with
+            {
+                MayIntroduceNewTerms = true
+            },
+            Alignment);
+
+        Assert.DoesNotContain(
+            issues,
+            issue => issue.Code == "unapproved-term");
     }
 
     private static ArtifactEnvelope Candidate(
